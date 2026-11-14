@@ -11,6 +11,7 @@ html,body{height:100%;margin:0;background:#000;color:#fff;font-family:system-ui,
 #st{flex:1;position:relative;min-height:0;display:flex;align-items:center;justify-content:center;overflow:hidden}
 #w{position:relative;overflow:hidden;background:#111}
 #v{width:100%;height:100%;display:block;object-fit:fill}
+#pvc{image-rendering:pixelated}
 #w canvas,#gr,#fl,#ring{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
 #gr{display:none}
 #fl{background:#fff;opacity:0}#fl.go{animation:f .4s ease-out}@keyframes f{from{opacity:.95}to{opacity:0}}
@@ -56,7 +57,7 @@ input[type=range]{width:100%;accent-color:var(--a)}
   <button class="b" data-o="sS" title="إعدادات"><span class="ic">⚙️</span></button>
  </div>
  <div id="st">
-  <div id="w"><video id="v" autoplay playsinline muted></video><canvas id="ovc"></canvas><div id="gr"></div><div id="lv"></div><div id="lt"></div><div id="fl"></div><div id="ring"></div>
+  <div id="w"><video id="v" autoplay playsinline muted></video><canvas id="pvc" style="display:none"></canvas><canvas id="ovc"></canvas><div id="gr"></div><div id="lv"></div><div id="lt"></div><div id="fl"></div><div id="ring"></div>
    <div id="bd">—</div><div id="rc">● <span id="rt">00:00</span></div><div id="cn"></div></div>
   <div id="ms">جاري تشغيل الكاميرا…</div>
   <input type="range" id="zr" min="0.6" max="10" step="0.05" value="1">
@@ -81,6 +82,7 @@ input[type=range]{width:100%;accent-color:var(--a)}
 <div class="sheet" id="sS"><h3>جودة الصورة والفيديو</h3><div class="row" id="qR"></div>
 <h3>إطارات الفيديو</h3><div class="row" id="pR"><button class="chip on" data-fps="30">30</button><button class="chip" data-fps="60">60</button></div>
 <div class="tg">تصوير متتالي (5 صور)<input type="checkbox" id="bu"></div>
+<div class="tg">ختم التاريخ البرتقالي (كاميرات نوكيا)<input type="checkbox" id="ds" checked></div>
 <div class="tg">صوت الغالق<input type="checkbox" id="sn" checked></div>
 <div class="tg">تسجيل الصوت بالفيديو<input type="checkbox" id="au" checked></div>
 <div class="tg">حفظ السيلفي معكوس (مرآة)<input type="checkbox" id="mi"></div>
@@ -91,7 +93,11 @@ input[type=range]{width:100%;accent-color:var(--a)}
 
 <script>
 const $=i=>document.getElementById(i),v=$("v"),wp=$("w"),sl=ms=>new Promise(r=>setTimeout(r,ms));
-const Q={max:{n:"أعلى جودة",w:7680,h:4320,cap:1e5,jq:.98,vb:5e7,s:1},high:{n:"عالية",w:1920,h:1080,cap:2560,jq:.9,vb:12e6,s:1},low:{n:"ضعيفة",w:640,h:360,cap:800,jq:.5,vb:1e6,s:1},vlow:{n:"ضعيفة جدا",w:320,h:240,cap:320,jq:.12,vb:1e5,s:.4}};
+const Q={max:{n:"أعلى جودة",w:7680,h:4320,cap:1e5,jq:.98,vb:5e7,s:1},high:{n:"عالية",w:1920,h:1080,cap:2560,jq:.9,vb:12e6,s:1},low:{n:"ضعيفة",w:640,h:360,cap:800,jq:.5,vb:1e6,s:1},vlow:{n:"ضعيفة جدا",w:320,h:240,cap:320,jq:.12,vb:1e5,s:.4},
+nk2:{n:"نوكيا N95 • 5MP",w:2592,h:1944,cap:2592,jq:.78,vb:4e6,s:1,nk:{pw:480,fps:24,sat:1,ct:1.08,cast:[1.02,1.02,.97],n:9,lv:128,bl:.35,vg:.2}},
+nk1:{n:"نوكيا N70 • 2MP",w:1600,h:1200,cap:1600,jq:.6,vb:2e6,s:1,nk:{pw:400,fps:20,sat:.88,ct:1.1,cast:[1.04,1.02,.95],n:16,lv:64,bl:.5,vg:.28}},
+nk0:{n:"نوكيا VGA • 0.3MP",w:640,h:480,cap:640,jq:.4,vb:3e5,s:1,nk:{pw:240,fps:15,sat:.8,ct:1.12,cast:[1.05,1.02,.92],n:26,lv:32,bl:.6,vg:.35}},
+nk3:{n:"نوكيا 7650 • 0.1MP",w:352,h:288,cap:352,jq:.3,vb:1.5e5,s:1,nk:{pw:176,fps:12,sat:.7,ct:1.15,cast:[1.06,1.03,.88],n:34,lv:24,bl:.8,vg:.4}}};
 const F={none:["بدون",""],bw:["أبيض وأسود","grayscale(1)"],noir:["نوار","grayscale(1) contrast(1.5) brightness(.9)"],sepia:["قديم","sepia(.9)"],vintage:["فينتج","sepia(.4) contrast(1.15) saturate(1.3) hue-rotate(-10deg)"],cool:["بارد","saturate(1.2) hue-rotate(180deg)"],warm:["دافئ","sepia(.35) saturate(1.5) brightness(1.05)"],vivid:["حيوي","saturate(2) contrast(1.15)"],fade:["باهت","contrast(.8) brightness(1.15) saturate(.8)"],chrome:["كروم","contrast(1.3) saturate(1.4) brightness(1.05)"],sunset:["غروب","sepia(.5) saturate(2) hue-rotate(-20deg)"],inv:["معكوس","invert(1)"]};
 const O={none:"بدون",vig:"تظليل",circ:"دائرة",heart:"قلب",star:"نجمة",film:"فيلم",pol:"بولارويد",leak:"تسريب ضوء",bokeh:"بوكيه"};
 const PRO=[["exposureCompensation","التعريض EV"],["iso","ISO"],["exposureTime","سرعة الغالق"],["colorTemperature","توازن الأبيض K"],["focusDistance","التركيز اليدوي"]];
@@ -119,7 +125,7 @@ function ov(c,w,h,t){if(t=="none")return;const m=Math.min(w,h);
 function drawOv(){const c=$("ovc");c.width=wp.clientWidth;c.height=wp.clientHeight;ov(c.getContext("2d"),c.width,c.height,ovT)}
 
 /* ---------- الشاشة والمعاينة ---------- */
-function fit(){const st=$("st"),ar=(v.videoWidth/v.videoHeight)||.75;let W=st.clientWidth,H=st.clientHeight;if(W/H>ar)W=H*ar;else H=W/ar;wp.style.width=W+"px";wp.style.height=H+"px";drawOv()}
+function fit(){const st=$("st"),ar=Q[q].nk?(v.videoWidth>=v.videoHeight?4/3:3/4):(v.videoWidth/v.videoHeight)||.75;let W=st.clientWidth,H=st.clientHeight;if(W/H>ar)W=H*ar;else H=W/ar;wp.style.width=W+"px";wp.style.height=H+"px";drawOv()}
 function view(){v.style.transform=`scale(${(facing=="user"?-1:1)*soft()},${soft()})`;v.style.filter=css();
  ["v1","v2","v3"].forEach((k,i)=>$(k).textContent=[$("br"),$("co"),$("sa")][i].value+"%");
  $("bd").textContent=`${Q[q].n} • ${v.videoWidth||"…"}×${v.videoHeight||"…"} • ${Z.toFixed(1)}x`;
@@ -131,7 +137,7 @@ function grid(){const g=$("gr"),l="#ffffff55",L=(p,d)=>`linear-gradient(${d},tra
 /* ---------- تشغيل الكاميرا ---------- */
 async function start(){
  try{stream&&stream.getTracks().forEach(t=>t.stop());const o=Q[q];
-  const vd={width:{ideal:o.w},height:{ideal:o.h},frameRate:{ideal:q=="vlow"?15:fps}};
+  const vd={width:{ideal:o.w},height:{ideal:o.h},frameRate:{ideal:o.nk?o.nk.fps:q=="vlow"?15:fps}};
   devId?vd.deviceId={exact:devId}:vd.facingMode=facing;
   stream=await navigator.mediaDevices.getUserMedia({video:vd,audio:$("au").checked});
   v.srcObject=stream;track=stream.getVideoTracks()[0];caps=track.getCapabilities?track.getCapabilities():{};
@@ -150,22 +156,43 @@ async function setZ(z,quiet){
  view()}
 function pro(){$("pro").innerHTML=PRO.map(([c,l])=>caps[c]?`<label class="s">${l} <b id="pv_${c}">تلقائي</b></label><input type="range" data-p="${c}" min="${caps[c].min}" max="${caps[c].max}" step="${caps[c].step||(caps[c].max-caps[c].min)/100}"><button class="chip" data-a="${c}">تلقائي</button>`:"").join("")||`<div class="mini">المتصفح/الجهاز ما يدعم التحكم اليدوي (ISO، غالق، تركيز). جرب Chrome على أندرويد. استخدم HDR والفلاتر من الأعلى.</div>`}
 
+
+/* ---------- إحساس نوكيا القديم ---------- */
+function retro(x,W,H,o){const im=x.getImageData(0,0,W,H),d=im.data,st=255/(o.lv-1);
+ for(let p=0;p<d.length;p+=4){let r=d[p],g=d[p+1],b=d[p+2];const l=.299*r+.587*g+.114*b;
+  r=l+(r-l)*o.sat;g=l+(g-l)*o.sat;b=l+(b-l)*o.sat;
+  r=((r-128)*o.ct+128)*o.cast[0];g=((g-128)*o.ct+128)*o.cast[1];b=((b-128)*o.ct+128)*o.cast[2];
+  const z=(Math.random()-.5)*o.n;r+=z;g+=z*.9;b+=z*1.1;
+  d[p]=Math.round(Math.min(255,Math.max(0,r))/st)*st;d[p+1]=Math.round(Math.min(255,Math.max(0,g))/st)*st;d[p+2]=Math.round(Math.min(255,Math.max(0,b))/st)*st}
+ x.putImageData(im,0,0)}
+function stamp(x,W,H){const t=new Date(),p=n=>String(n).padStart(2,"0"),s=`${p(t.getDate())} ${p(t.getMonth()+1)} '${p(t.getFullYear()%100)}`,fs=Math.max(8,Math.round(H*.055));
+ x.font=`bold ${fs}px monospace`;x.textAlign="right";x.textBaseline="bottom";x.shadowColor="#ff6a00";x.shadowBlur=fs*.25;x.fillStyle="#ff9a2e";x.fillText(s,W-fs*.6,H-fs*.5);x.shadowBlur=0}
+function nkDraw(x,src,W,H,o,mir){const sw=src.videoWidth||src.width,sh=src.videoHeight||src.height,ar=W/H,s=soft();let cw=sw/s,ch=cw/ar;if(ch>sh/s){ch=sh/s;cw=ch*ar}
+ x.save();try{x.filter=css()+` blur(${o.bl}px)`}catch(e){}if(mir){x.translate(W,0);x.scale(-1,1)}x.drawImage(src,(sw-cw)/2,(sh-ch)/2,cw,ch,0,0,W,H);x.restore();
+ retro(x,W,H,o);const g=x.createRadialGradient(W/2,H/2,Math.min(W,H)*.35,W/2,H/2,Math.hypot(W,H)/2);g.addColorStop(0,"#0000");g.addColorStop(1,`rgba(0,0,0,${o.vg})`);x.fillStyle=g;x.fillRect(0,0,W,H);
+ if($("ds").checked)stamp(x,W,H)}
+let pvT=0;(function pvLoop(t){requestAnimationFrame(pvLoop);const o=Q[q].nk,c=$("pvc");if(!o){c.style.display="none";v.style.opacity=1;return}
+ if(!v.videoWidth||t-pvT<1000/o.fps)return;pvT=t;const L=v.videoWidth>=v.videoHeight,W=L?o.pw:Math.round(o.pw*.75),H=L?Math.round(o.pw*.75):o.pw;
+ if(c.width!=W||c.height!=H){c.width=W;c.height=H}nkDraw(c.getContext("2d"),v,W,H,o,facing=="user");c.style.display="block";v.style.opacity=0})(0);
+
 /* ---------- الالتقاط ---------- */
 function beep(){if(!$("sn").checked)return;try{const a=new(window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.frequency.value=1300;g.gain.value=.15;o.connect(g);g.connect(a.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.12);o.stop(a.currentTime+.13)}catch(e){}}
-function pOpt(){const o={};if(pc&&pc.imageWidth&&q!="low"&&q!="vlow"){o.imageWidth=pc.imageWidth.max;o.imageHeight=pc.imageHeight.max}if(flash&&pc&&pc.fillLightMode&&pc.fillLightMode.includes("flash"))o.fillLightMode="flash";return o}
+function pOpt(){const o={};if(pc&&pc.imageWidth&&q!="low"&&q!="vlow"&&!Q[q].nk){o.imageWidth=pc.imageWidth.max;o.imageHeight=pc.imageHeight.max}if(flash&&pc&&pc.fillLightMode&&pc.fillLightMode.includes("flash"))o.fillLightMode="flash";return o}
 async function grab(){if(ic)try{return await createImageBitmap(await ic.takePhoto(pOpt()))}catch(e){}return createImageBitmap(v)}
 function fuse(bs,gs){let w=bs[0].width,h=bs[0].height;const k=Math.min(1,3000/Math.max(w,h));w=Math.round(w*k);h=Math.round(h*k);
  const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");
  const D=bs.map(b=>{x.drawImage(b,0,0,w,h);return x.getImageData(0,0,w,h).data}),out=x.createImageData(w,h),o=out.data,n=w*h*4;
  for(let p=0;p<n;p+=4){let R=0,G=0,B=0,S=0;for(let i=0;i<D.length;i++){const d=D[i],g=gs[i],r=Math.min(255,d[p]*g),e=Math.min(255,d[p+1]*g),b=Math.min(255,d[p+2]*g),l=(r*.299+e*.587+b*.114)/255,wt=Math.exp(-((l-.5)**2)/.08)+1e-4;R+=r*wt;G+=e*wt;B+=b*wt;S+=wt}o[p]=R/S;o[p+1]=G/S;o[p+2]=B/S;o[p+3]=255}
  x.putImageData(out,0,0);return c}
-function compose(src){const o=Q[q],sw=src.width,sh=src.height,s=soft(),cw=sw/s,ch=sh/s,k=Math.min(1,o.cap/Math.max(cw,ch))*o.s,W=Math.max(2,Math.round(cw*k)),H=Math.max(2,Math.round(ch*k));
+function compose(src){const o=Q[q];
+ if(o.nk){const L=src.width>=src.height,W=L?o.cap:Math.round(o.cap*.75),H=L?Math.round(o.cap*.75):o.cap,c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");nkDraw(x,src,W,H,o.nk,mirOut());ov(x,W,H,ovT);return c}
+ const sw=src.width,sh=src.height,s=soft(),cw=sw/s,ch=sh/s,k=Math.min(1,o.cap/Math.max(cw,ch))*o.s,W=Math.max(2,Math.round(cw*k)),H=Math.max(2,Math.round(ch*k));
  const c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");x.save();try{x.filter=css()}catch(e){}
  if(mirOut()){x.translate(W,0);x.scale(-1,1)}x.drawImage(src,(sw-cw)/2,(sh-ch)/2,cw,ch,0,0,W,H);x.restore();ov(x,W,H,ovT);return c}
 async function photo(){
  $("fl").classList.remove("go");void $("fl").offsetWidth;$("fl").classList.add("go");beep();navigator.vibrate&&navigator.vibrate(25);
  let src;
- if(hdr){toast("HDR… ثبّت الجوال");const e=caps.exposureCompensation;
+ if(hdr&&!Q[q].nk){toast("HDR… ثبّت الجوال");const e=caps.exposureCompensation;
   if(e){const bs=[],cur=track.getSettings().exposureCompensation||0;for(const val of[e.min*.6,0,e.max*.6]){try{await track.applyConstraints({advanced:[{exposureCompensation:val}]})}catch(x){}await sl(350);bs.push(await grab())}
    try{await track.applyConstraints({advanced:[{exposureCompensation:cur}]})}catch(x){}src=fuse(bs,[1,1,1])}
   else{const b=await grab();src=fuse([b,b,b],[.5,1,2])}}
@@ -179,10 +206,14 @@ function add(b,type){const u=URL.createObjectURL(b);items.unshift({u,type,n:`cam
  $("gal").innerHTML=items.map((x,i)=>x.type.includes("image")?`<img src="${x.u}" data-i="${i}">`:`<video src="${x.u}" data-i="${i}" muted></video>`).join("")}
 function toggleRec(){
  if(rec&&rec.state=="recording"){rec.stop();return}
- const o=Q[q],cv=css()!=NEU||ovT!="none"||soft()>1.001||mirOut();let src=stream,on=true,cvs;
- if(cv){cvs=document.createElement("canvas");const k=Math.min(1,o.cap/Math.max(v.videoWidth,v.videoHeight))*o.s,W=Math.round(v.videoWidth*k)&~1||2,H=Math.round(v.videoHeight*k)&~1||2;cvs.width=W;cvs.height=H;const x=cvs.getContext("2d"),s=soft();
-  (function lp(){if(!on)return;x.save();try{x.filter=css()}catch(e){}if(mirOut()){x.translate(W,0);x.scale(-1,1)}x.drawImage(v,(v.videoWidth-v.videoWidth/s)/2,(v.videoHeight-v.videoHeight/s)/2,v.videoWidth/s,v.videoHeight/s,0,0,W,H);x.restore();ov(x,W,H,ovT);requestAnimationFrame(lp)})();
-  src=cvs.captureStream(q=="vlow"?12:fps);stream.getAudioTracks().forEach(t=>src.addTrack(t))}
+ const o=Q[q],cv=!!o.nk||css()!=NEU||ovT!="none"||soft()>1.001||mirOut();let src=stream,on=true,cvs;
+ if(cv){cvs=document.createElement("canvas");const L=v.videoWidth>=v.videoHeight,k=Math.min(1,o.cap/Math.max(v.videoWidth,v.videoHeight))*o.s;
+  let W=o.nk?(L?o.cap:Math.round(o.cap*.75)):Math.round(v.videoWidth*k)&~1||2,H=o.nk?(L?Math.round(o.cap*.75):o.cap):Math.round(v.videoHeight*k)&~1||2;
+  if(o.nk){const m=Math.min(1,640/Math.max(W,H));W=Math.round(W*m)&~1;H=Math.round(H*m)&~1}
+  cvs.width=W;cvs.height=H;const x=cvs.getContext("2d");let lt=0;
+  (function lp(t){if(!on)return;requestAnimationFrame(lp);if(o.nk&&t-lt<1000/o.nk.fps)return;lt=t;
+   if(o.nk){nkDraw(x,v,W,H,o.nk,mirOut())}else{const s=soft();x.save();try{x.filter=css()}catch(e){}if(mirOut()){x.translate(W,0);x.scale(-1,1)}x.drawImage(v,(v.videoWidth-v.videoWidth/s)/2,(v.videoHeight-v.videoHeight/s)/2,v.videoWidth/s,v.videoHeight/s,0,0,W,H);x.restore();ov(x,W,H,ovT)}})(0);
+  src=cvs.captureStream(o.nk?o.nk.fps:q=="vlow"?12:fps);stream.getAudioTracks().forEach(t=>src.addTrack(t))}
  const mt=["video/webm;codecs=vp9,opus","video/webm;codecs=vp8,opus","video/webm","video/mp4"].find(t=>MediaRecorder.isTypeSupported(t)),ch=[];
  rec=new MediaRecorder(src,{mimeType:mt,videoBitsPerSecond:o.vb});rec.ondataavailable=e=>e.data.size&&ch.push(e.data);
  rec.onstop=()=>{on=false;clearInterval(recT);$("rc").style.display="none";$("sh").classList.remove("rec");add(new Blob(ch,{type:rec.mimeType||"video/webm"}),"video/webm")};
