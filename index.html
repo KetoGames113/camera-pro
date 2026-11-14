@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl"><head><meta charset="UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
-<meta name="theme-color" content="#000"><title>كاميرا برو</title>
+<meta http-equiv="Cache-Control" content="no-cache, must-revalidate"><meta name="theme-color" content="#000"><title>كاميرا برو</title>
 <style>
 :root{--p:#1a1c21;--l:#2c2f37;--m:#9aa0ab;--a:#ffb703;--r:0deg}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
@@ -129,7 +129,7 @@ function drawOv(){const c=$("ovc");c.width=wp.clientWidth;c.height=wp.clientHeig
 function fit(){const st=$("st"),ar=Q[q].nk?(v.videoWidth>=v.videoHeight?4/3:3/4):(v.videoWidth/v.videoHeight)||.75;let W=st.clientWidth,H=st.clientHeight;if(W/H>ar)W=H*ar;else H=W/ar;wp.style.width=W+"px";wp.style.height=H+"px";drawOv()}
 function view(){v.style.transform=`scale(${(facing=="user"?-1:1)*soft()},${soft()})`;v.style.filter=css()==NEU?"none":css();
  ["v1","v2","v3"].forEach((k,i)=>$(k).textContent=[$("br"),$("co"),$("sa")][i].value+"%");
- $("bd").textContent=`${Q[q].n} • ${v.videoWidth||"…"}×${v.videoHeight||"…"} • ${Z.toFixed(1)}x`;
+ $("bd").textContent=`${Q[q].n} • ${v.videoWidth||"…"}×${v.videoHeight||"…"} • ${Z.toFixed(1)}x • v4`;
  $("zr").value=Z;document.querySelectorAll(".z").forEach(b=>b.classList.toggle("on",Math.abs(+b.dataset.z-Z)<.06))}
 function grid(){const g=$("gr"),l="#ffffff55",L=(p,d)=>`linear-gradient(${d},transparent calc(${p} - .5px),${l} ${p},transparent calc(${p} + .5px))`;
  const S=[null,[L("33.3%","90deg"),L("66.6%","90deg"),L("33.3%","0deg"),L("66.6%","0deg")],[L("25%","90deg"),L("50%","90deg"),L("75%","90deg"),L("25%","0deg"),L("50%","0deg"),L("75%","0deg")],[L("38.2%","90deg"),L("61.8%","90deg"),L("38.2%","0deg"),L("61.8%","0deg")],[L("50%","to top right"),L("50%","to top left"),L("50%","90deg"),L("50%","0deg")]][gm];
@@ -230,8 +230,9 @@ let lt=0;addEventListener("devicemotion",e=>{const g=e.accelerationIncludingGrav
 
 /* ---------- الأحداث ---------- */
 function closeAll(){document.querySelectorAll(".sheet").forEach(s=>s.classList.remove("open"));$("bk").style.display="none"}
-$("bk").onclick=closeAll;
-document.querySelectorAll(".sheet").forEach(s=>s.insertAdjacentHTML("afterbegin",'<button class="chip x" data-x>✕ إغلاق</button>'));
+$("bk").onclick=closeAll;$("bk").addEventListener("pointerdown",closeAll);
+addEventListener("keydown",e=>{if(e.key=="Escape")closeAll()});
+document.querySelectorAll(".sheet").forEach(s=>{s.insertAdjacentHTML("afterbegin",'<button class="chip x" data-x>✕ إغلاق</button>');let y0=0;s.addEventListener("touchstart",e=>{y0=e.touches[0].clientY},{passive:true});s.addEventListener("touchend",e=>{if(s.scrollTop<=0&&e.changedTouches[0].clientY-y0>90)closeAll()},{passive:true})});
 document.addEventListener("click",async e=>{const t=e.target.closest("button,[data-i],[data-o]");if(!t)return;const d=t.dataset;
  if(d.o){const was=$(d.o).classList.contains("open");closeAll();if(!was){$(d.o).classList.add("open");$("bk").style.display="block"}}
  else if(d.x!==undefined)closeAll()
