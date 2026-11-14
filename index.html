@@ -44,6 +44,7 @@ input[type=range]{width:100%;accent-color:var(--a)}
 .tg{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--l);font-size:14px}
 #gal{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}#gal img,#gal video{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px}
 .mini{font-size:12px;color:var(--m);line-height:1.7;margin-top:8px}
+#bk{position:fixed;inset:0;z-index:8;display:none;background:#0006}.sheet .x{position:sticky;top:0;float:left;z-index:2;background:#2c2f37}
 #tt{position:fixed;top:12%;left:50%;transform:translateX(-50%);background:#000c;padding:8px 16px;border-radius:99px;font-size:13px;opacity:0;transition:.3s;z-index:20;pointer-events:none}#tt.on{opacity:1}
 </style></head><body>
 <div id="app">
@@ -89,11 +90,11 @@ input[type=range]{width:100%;accent-color:var(--a)}
 <div class="mini" id="cp"></div></div>
 
 <div class="sheet" id="sG"><h3>المعرض</h3><div id="gal"></div><div class="mini">اضغط على أي عنصر لتحميله.</div></div>
-<div id="tt"></div>
+<div id="bk"></div><div id="tt"></div>
 
 <script>
 const $=i=>document.getElementById(i),v=$("v"),wp=$("w"),sl=ms=>new Promise(r=>setTimeout(r,ms));
-const Q={max:{n:"أعلى جودة",w:7680,h:4320,cap:1e5,jq:.98,vb:5e7,s:1},high:{n:"عالية",w:1920,h:1080,cap:2560,jq:.9,vb:12e6,s:1},low:{n:"ضعيفة",w:640,h:360,cap:800,jq:.5,vb:1e6,s:1},vlow:{n:"ضعيفة جدا",w:320,h:240,cap:320,jq:.12,vb:1e5,s:.4},
+const Q={max:{n:"أعلى جودة",w:2560,h:1920,cap:1e5,jq:.98,vb:5e7,s:1},high:{n:"عالية",w:1920,h:1080,cap:2560,jq:.9,vb:12e6,s:1},low:{n:"ضعيفة",w:640,h:360,cap:800,jq:.5,vb:1e6,s:1},vlow:{n:"ضعيفة جدا",w:320,h:240,cap:320,jq:.12,vb:1e5,s:.4},
 nk2:{n:"نوكيا N95 • 5MP",w:2592,h:1944,cap:2592,jq:.78,vb:4e6,s:1,nk:{pw:480,fps:24,sat:1,ct:1.08,cast:[1.02,1.02,.97],n:9,lv:128,bl:.35,vg:.2}},
 nk1:{n:"نوكيا N70 • 2MP",w:1600,h:1200,cap:1600,jq:.6,vb:2e6,s:1,nk:{pw:400,fps:20,sat:.88,ct:1.1,cast:[1.04,1.02,.95],n:16,lv:64,bl:.5,vg:.28}},
 nk0:{n:"نوكيا VGA • 0.3MP",w:640,h:480,cap:640,jq:.4,vb:3e5,s:1,nk:{pw:240,fps:15,sat:.8,ct:1.12,cast:[1.05,1.02,.92],n:26,lv:32,bl:.6,vg:.35}},
@@ -126,7 +127,7 @@ function drawOv(){const c=$("ovc");c.width=wp.clientWidth;c.height=wp.clientHeig
 
 /* ---------- الشاشة والمعاينة ---------- */
 function fit(){const st=$("st"),ar=Q[q].nk?(v.videoWidth>=v.videoHeight?4/3:3/4):(v.videoWidth/v.videoHeight)||.75;let W=st.clientWidth,H=st.clientHeight;if(W/H>ar)W=H*ar;else H=W/ar;wp.style.width=W+"px";wp.style.height=H+"px";drawOv()}
-function view(){v.style.transform=`scale(${(facing=="user"?-1:1)*soft()},${soft()})`;v.style.filter=css();
+function view(){v.style.transform=`scale(${(facing=="user"?-1:1)*soft()},${soft()})`;v.style.filter=css()==NEU?"none":css();
  ["v1","v2","v3"].forEach((k,i)=>$(k).textContent=[$("br"),$("co"),$("sa")][i].value+"%");
  $("bd").textContent=`${Q[q].n} • ${v.videoWidth||"…"}×${v.videoHeight||"…"} • ${Z.toFixed(1)}x`;
  $("zr").value=Z;document.querySelectorAll(".z").forEach(b=>b.classList.toggle("on",Math.abs(+b.dataset.z-Z)<.06))}
@@ -228,8 +229,12 @@ let lt=0;addEventListener("devicemotion",e=>{const g=e.accelerationIncludingGrav
  if(lvOn&&!flat){$("lv").style.display=$("lt").style.display="block";$("lv").style.transform=`translate(-50%,-50%) rotate(${-rel}deg)`;$("lv").classList.toggle("ok",Math.abs(rel)<1);$("lt").textContent=rel.toFixed(1)+"°"}else $("lv").style.display=$("lt").style.display="none"});
 
 /* ---------- الأحداث ---------- */
+function closeAll(){document.querySelectorAll(".sheet").forEach(s=>s.classList.remove("open"));$("bk").style.display="none"}
+$("bk").onclick=closeAll;
+document.querySelectorAll(".sheet").forEach(s=>s.insertAdjacentHTML("afterbegin",'<button class="chip x" data-x>✕ إغلاق</button>'));
 document.addEventListener("click",async e=>{const t=e.target.closest("button,[data-i],[data-o]");if(!t)return;const d=t.dataset;
- if(d.o){document.querySelectorAll(".sheet").forEach(s=>s.classList.toggle("open",s.id==d.o&&!s.classList.contains("open")))}
+ if(d.o){const was=$(d.o).classList.contains("open");closeAll();if(!was){$(d.o).classList.add("open");$("bk").style.display="block"}}
+ else if(d.x!==undefined)closeAll()
  else if(d.q){q=d.q;qb();start()}
  else if(d.f){f=d.f;fb();view()}
  else if(d.ov){ovT=d.ov;fb();drawOv()}
@@ -244,7 +249,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest("button,[da
  else if(t.id=="bL"){motion();lvOn=!lvOn;t.classList.toggle("on",!!lvOn)}
  else if(t.id=="bM"){mode=mode=="photo"?"video":"photo";t.firstChild.textContent=mode=="photo"?"📷":"🎥";$("sh").classList.toggle("vid",mode=="video")}
  else if(t.id=="bC"){if(cams.length>2||(cams.length>1&&devId)){const i=cams.findIndex(c=>c.deviceId==(devId||track.getSettings().deviceId));devId=cams[(i+1)%cams.length].deviceId;facing=/front|user|أمام/i.test(cams[(i+1)%cams.length].label)?"user":"environment"}else{devId=null;facing=facing=="user"?"environment":"user"}Z=1;start()}
- else if(t.id=="sh"){motion();shoot()}});
+ else if(t.id=="sh"){motion();closeAll();shoot()}});
 document.addEventListener("input",async e=>{const t=e.target;
  if(t.dataset.p){const c=t.dataset.p,adv={[c]:+t.value};if(c=="iso"||c=="exposureTime")adv.exposureMode="manual";if(c=="colorTemperature")adv.whiteBalanceMode="manual";if(c=="focusDistance")adv.focusMode="manual";try{await track.applyConstraints({advanced:[adv]})}catch(x){}$("pv_"+c).textContent=(+t.value).toFixed(2)}
  else if(["br","co","sa"].includes(t.id))view();else if(t.id=="zr")setZ(+t.value);else if(t.id=="au")start()});
