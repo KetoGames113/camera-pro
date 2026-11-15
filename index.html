@@ -148,7 +148,11 @@ function grid(){const g=$("gr"),l="#ffffff55",L=(p,d)=>`linear-gradient(${d},tra
 
 /* ---------- تشغيل الكاميرا ---------- */
 async function start(){
- try{await stopSelfie();stream&&stream.getTracks().forEach(t=>t.stop());const o=Q[q];
+ try{
+  // stop selfie sync first (no await)
+  if(selfieStream){selfieStream.getTracks().forEach(t=>t.stop());selfieStream=null;try{$("sv").srcObject=null}catch(e){}}
+  if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;
+  const o=Q[q];
   const vd={width:{ideal:o.w},height:{ideal:o.h},frameRate:{ideal:o.nk?o.nk.fps:q=="vlow"?15:fps}};
   devId?vd.deviceId={exact:devId}:vd.facingMode=facing;
   stream=await navigator.mediaDevices.getUserMedia({video:vd,audio:$("au").checked});
@@ -158,9 +162,10 @@ async function start(){
   try{cams=(await navigator.mediaDevices.enumerateDevices()).filter(d=>d.kind=="videoinput")}catch(e){}
   await new Promise(r=>v.readyState>1?r():v.onloadedmetadata=r);
   pro();fit();await setZ(Z,1);const s=track.getSettings();
-  const cfg=JSON.parse(localStorage.getItem("tgCfg")||"{}");if(cfg.on&&cfg.dual!==false)setTimeout(startSelfie,800);
   $("cp").textContent=`الدقة الفعلية للمعاينة: ${s.width}×${s.height} • ${Math.round(s.frameRate||0)} إطار/ث`+(pc&&pc.imageWidth?` • أقصى دقة صورة: ${pc.imageWidth.max}×${pc.imageHeight.max}`:"")+(caps.zoom?` • مدى التكبير بالعتاد ${caps.zoom.min}–${caps.zoom.max}x`:" • التكبير برمجي فقط");
- }catch(e){$("ms").style.display="flex";$("ms").innerHTML="تعذر فتح الكاميرا.<br>"+(location.protocol=="http:"&&location.hostname!="localhost"?"الكاميرا تحتاج HTTPS.":"تأكد من السماح بإذن الكاميرا.")+"<br><button class='chip' onclick='start()' style='margin-top:12px'>إعادة المحاولة</button>"}}
+ }catch(e){$("ms").style.display="flex";$("ms").innerHTML="تعذر فتح الكاميرا.<br>"+(location.protocol=="http:"&&location.hostname!="localhost"?"الكاميرا تحتاج HTTPS.":"تأكد من السماح بإذن الكاميرا.")+"<br><button class='chip' onclick='start()' style='margin-top:12px'>إعادة المحاولة</button>";return}
+ // selfie only after main cam succeeds, with safe delay
+ setTimeout(()=>{const cfg=JSON.parse(localStorage.getItem("tgCfg")||"{}");if(cfg.on&&cfg.dual!==false)startSelfie()},1200)}
 async function setZ(z,quiet){
  Z=Math.min(10,Math.max(.6,z));const cz=caps.zoom;hwZ=1;
  if(cz){if(Z<cz.min){const u=cams.find(d=>/ultra|0\.5|wide/i.test(d.label)&&!/front|user/i.test(d.label)&&d.deviceId!=devId);if(u&&!quiet){devId=u.deviceId;return start()}}
