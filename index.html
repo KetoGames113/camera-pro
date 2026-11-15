@@ -148,9 +148,7 @@ function grid(){const g=$("gr"),l="#ffffff55",L=(p,d)=>`linear-gradient(${d},tra
 /* ---------- تشغيل الكاميرا ---------- */
 async function start(){
  try{
-  // stop selfie sync first (no await)
-  if(selfieStream){selfieStream.getTracks().forEach(t=>t.stop());selfieStream=null;try{$("sv").srcObject=null}catch(e){}}
-  if(stream)stream.getTracks().forEach(t=>t.stop());stream=null;
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null;}
   const o=Q[q];
   const vd={width:{ideal:o.w},height:{ideal:o.h},frameRate:{ideal:o.nk?o.nk.fps:q=="vlow"?15:fps}};
   devId?vd.deviceId={exact:devId}:vd.facingMode=facing;
