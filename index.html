@@ -86,7 +86,10 @@ input[type=range]{width:100%;accent-color:var(--a);height:4px}
  </div>
 </div>
 
-<div class="sheet" id="sF"><div id="oR"></div>
+<div class="sheet" id="sF"><h3>فلتر بالذكاء الاصطناعي</h3>
+<input type="text" id="aiPrompt" placeholder="صف الفلتر اللي تبيه… مثلاً: فلتر قديم دافئ وكئيب" style="width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);font-family:inherit">
+<button class="chip" id="aiGen" style="margin-top:8px;font-weight:700">✨ إنشاء وتطبيق</button>
+<div id="oR"></div>
 <label class="s">نص شريط الستوري (لقالب "شريط تعليق")</label><input type="text" id="capTxt" placeholder="اكتب تعليقك هنا…" style="width:100%;padding:9px 12px;border-radius:10px;border:1px solid var(--line);background:rgba(255,255,255,.04);color:var(--text);font-family:inherit">
 <div id="fR" style="margin-top:6px"></div>
 <label class="s">السطوع <b id="v1">100%</b></label><input type="range" id="br" min="40" max="200" value="100">
@@ -143,7 +146,28 @@ const F={none:["بدون","",'c'],bw:["أبيض وأسود","grayscale(1)",'c'],
 cool:["بارد","saturate(1.2) hue-rotate(180deg)",'g'],fade:["باهت","contrast(.8) brightness(1.15) saturate(.8)",'g'],chrome:["كروم","contrast(1.3) saturate(1.4) brightness(1.05)",'g'],vivid:["حيوي","saturate(2) contrast(1.15)",'g'],inv:["معكوس","invert(1)",'g'],
 crisp4k:["4K حاد","contrast(1.14) saturate(1.12) brightness(1.02)",'k'],hdrcine:["HDR سينمائي","contrast(1.22) saturate(1.28) brightness(.97)",'k'],daylight:["وضوح نهاري","brightness(1.08) contrast(1.16) saturate(1.06)",'k'],superclear:["نقاء فائق","contrast(1.18) saturate(1.3) brightness(1.03)",'k'],
 soft:["تنعيم ناعم","brightness(1.05) contrast(.95) saturate(1.08) blur(.6px)",'e'],autopop:["تباين تلقائي","contrast(1.16) saturate(1.22)",'e']};
-const FCATN={c:"كلاسيكية وقديمة",g:"ألوان وتجارب",k:"4K وتحسين الوضوح",e:"تحسينات تجميلية"};
+const FCATN={a:"فلاتر AI الخاصة بك",c:"كلاسيكية وقديمة",g:"ألوان وتجارب",k:"4K وتحسين الوضوح",e:"تحسينات تجميلية"};
+const AI_LEX=[[/دافئ|ذهبي|warm|golden|شمس/i,{b:.04,c:.04,s:.18,sep:.25}],[/بارد|أزرق فاتح|cool|cold|ثلج/i,{s:.15,hue:180}],
+[/قديم|عتيق|كلاسيك|retro|vintage|نوستالج/i,{sep:.5,c:.12,s:-.08}],[/كئيب|درامي|حزين|غامض|moody/i,{c:.18,b:-.08,s:-.1}],
+[/حيوي|نابض|صارخ|vivid|pop|قوي الألوان/i,{s:.45,c:.14}],[/ناعم|حالم|dreamy|soft|رومانسي/i,{b:.08,c:-.1,blur:.5}],
+[/أبيض.{0,2}أسود|احادي|monochrome|grayscale|رمادي/i,{gray:1}],[/نوار|noir|بوليسي/i,{gray:1,c:.4,b:-.1}],
+[/معكوس|سلبي|invert|negative/i,{inv:1}],[/نيون|سايبر|neon|cyberpunk|مستقبلي/i,{s:.4,c:.18,hue:260}],
+[/مشرق|ساطع|bright|مضيء/i,{b:.12}],[/غامق|مظلم|dim/i,{b:-.14}],
+[/أحمر|red/i,{hue:0,s:.2}],[/برتقالي|orange/i,{hue:30,s:.2}],[/أصفر|yellow/i,{hue:55,s:.2}],
+[/أخضر|green/i,{hue:115,s:.2}],[/سماوي|تركواز|cyan/i,{hue:180,s:.2}],[/بنفسجي|violet|purple/i,{hue:270,s:.2}],
+[/وردي|زهري|pink/i,{hue:320,s:.2}],[/أزرق|blue/i,{hue:230,s:.2}]];
+function hashStr(s){let h=0;for(let i=0;i<s.length;i++)h=(h*31+s.charCodeAt(i))|0;return Math.abs(h)}
+function aiFilterCSS(prompt){
+ const d={b:0,c:0,s:0,hue:0,sep:0,gray:0,inv:0,blur:0};let hit=0;
+ AI_LEX.forEach(([re,o])=>{if(re.test(prompt)){hit=1;Object.keys(o).forEach(k=>{if(k=="gray"||k=="inv")d[k]=Math.max(d[k],o[k]);else d[k]+=o[k]})}});
+ if(!hit){const h=hashStr(prompt);d.hue=h%360;d.c=.08+((h>>3)%10)/100;d.s=.1+((h>>6)%15)/100}
+ const parts=[`brightness(${(1+d.b).toFixed(2)})`,`contrast(${(1+d.c).toFixed(2)})`,`saturate(${Math.max(.15,1+d.s).toFixed(2)})`];
+ if(d.gray)parts.push("grayscale(1)");if(d.sep)parts.push(`sepia(${Math.min(1,d.sep).toFixed(2)})`);
+ if(d.hue)parts.push(`hue-rotate(${Math.round(d.hue)}deg)`);if(d.inv)parts.push("invert(1)");
+ if(d.blur)parts.push(`blur(${d.blur.toFixed(2)}px)`);
+ return parts.join(" ")}
+let customF=[];try{customF=JSON.parse(localStorage.getItem("aiFilters")||"[]")}catch(e){}
+customF.forEach(x=>F[x.key]=[x.label,x.css,'a']);
 const O={none:"بدون",vig:"تظليل",circ:"دائرة",heart:"قلب",star:"نجمة",leak:"تسريب ضوء",bokeh:"بوكيه",film:"فيلم",pol:"بولارويد",datesticker:"ستيكر التاريخ",captionbar:"شريط تعليق",snow:"ثلج متساقط",rain:"مطر",confetti:"قصاصات ملونة",sparkle:"بريق لامع",hearts2:"قلوب عائمة"};
 const OC={none:'f',vig:'f',circ:'f',heart:'f',star:'f',leak:'f',bokeh:'f',film:'s',pol:'s',datesticker:'s',captionbar:'s',snow:'m',rain:'m',confetti:'m',sparkle:'m',hearts2:'m'};
 const OCATN={f:"إطارات وأشكال",s:"قوالب ستوري",m:"حركة وتأثيرات متحركة"};
@@ -406,6 +430,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest("button,[da
  if(d.o){const was=$(d.o).classList.contains("open");closeAll();if(!was){$(d.o).classList.add("open");$("bk").style.display="block"}}
  else if(d.x!==undefined)closeAll()
  else if(d.q){q=d.q;qb();start()}
+ else if(d.delf){delete F[d.delf];customF=customF.filter(x=>x.key!=d.delf);localStorage.setItem("aiFilters",JSON.stringify(customF));if(f==d.delf){f="none";view()}fb();return}
  else if(d.f){f=d.f;fb();view()}
  else if(d.ov){ovT=d.ov;fb();drawOv()}
  else if(d.z)setZ(+d.z);
@@ -433,7 +458,9 @@ function qb(){$("qR").innerHTML=Object.entries(Q).map(([k,o])=>`<button class="c
 function fb(){
  const byF={};Object.entries(F).forEach(([k,o])=>{(byF[o[2]]=byF[o[2]]||[]).push([k,o])});
  $("fR").innerHTML=Object.entries(FCATN).map(([cat,label])=>{const items=byF[cat]||[];if(!items.length)return"";
-  return `<h3>${label}</h3><div class="row">`+items.map(([k,o])=>`<button class="chip ${k==f?"on":""}" data-f="${k}">${o[0]}</button>`).join("")+`</div>`}).join("");
+  return `<h3>${label}</h3><div class="row">`+items.map(([k,o])=>cat=="a"?
+   `<span style="display:inline-flex;align-items:center;gap:3px"><button class="chip ${k==f?"on":""}" data-f="${k}">${o[0]}</button><button data-delf="${k}" title="حذف" style="width:21px;height:21px;border-radius:50%;border:1px solid var(--line);background:rgba(255,255,255,.06);color:var(--m);font-size:11px;line-height:1;flex:none">✕</button></span>`
+   :`<button class="chip ${k==f?"on":""}" data-f="${k}">${o[0]}</button>`).join("")+`</div>`}).join("");
  const byO={};Object.entries(O).forEach(([k,n])=>{if(k=="none")return;(byO[OC[k]]=byO[OC[k]]||[]).push([k,n])});
  $("oR").innerHTML=`<h3>${OCATN.f}</h3><div class="row"><button class="chip ${ovT=="none"?"on":""}" data-ov="none">بدون</button>`+(byO.f||[]).map(([k,n])=>`<button class="chip ${k==ovT?"on":""}" data-ov="${k}">${n}</button>`).join("")+`</div>`+
   Object.entries(OCATN).filter(([c])=>c!="f").map(([cat,label])=>{const items=byO[cat]||[];if(!items.length)return"";
@@ -446,5 +473,9 @@ if(!localStorage.getItem("familyNoticeSeen"))$("notice").style.display="flex";
 $("noticeOk").onclick=()=>{localStorage.setItem("familyNoticeSeen","1");$("notice").style.display="none"};
 $("tgUnlock").onclick=()=>{const p=prompt("كلمة سر إعدادات المطور:");if(p==null)return;if(p=="ffrroomm"){$("tgLocked").style.display="none";$("tgDev").style.display="block"}else toast("كلمة سر خاطئة")};
 $("tgLock").onclick=()=>{$("tgDev").style.display="none";$("tgLocked").style.display="block"};
+$("aiGen").onclick=()=>{const p=$("aiPrompt").value.trim();if(!p){toast("اكتب وصف الفلتر أولاً");return}
+ const css=aiFilterCSS(p),key="ai_"+Date.now(),label=p.length>16?p.slice(0,16)+"…":p;
+ F[key]=[label,css,'a'];customF.push({key,label,css});localStorage.setItem("aiFilters",JSON.stringify(customF));
+ f=key;fb();view();$("aiPrompt").value="";toast("تم إنشاء الفلتر وتطبيقه ✓")};
 addEventListener("pointerdown",motion,{once:true}); // يطلب إذن الحركة بآيفون مع أول لمسة بدون أي شاشة إضافية (مطلوب يصير جوا لمسة مستخدم)
 </script></body></html>
