@@ -175,6 +175,7 @@ const MOTION_OV=["snow","rain","confetti","sparkle","hearts2"];
 function rnd(i,s){const x=Math.sin(i*12.9898+s*78.233)*43758.5453;return x-Math.floor(x)}
 const PRO=[["exposureCompensation","التعريض EV"],["iso","ISO"],["exposureTime","سرعة الغالق"],["colorTemperature","توازن الأبيض K"],["focusDistance","التركيز اليدوي"]];
 let q="high",f="none",ovT="none",facing="environment",devId=null,stream,track,ic,pc,caps={},cams=[],Z=1,hwZ=1,mode="photo",timer=0,fps=30,hdr=0,flash=0,gm=0,lvOn=0,rec,recT,items=[],roll=0,ang=0,asked=0;
+let secStream=null,secFacing=null,secStarting=false;
 let selfieStream=null,lastLoc=null,dualOK=true,nowT=0;
 const ios=/iPhone|iPad|iPod/.test(navigator.userAgent);
 function toast(t){const e=$("tt");e.textContent=t;e.classList.add("on");clearTimeout(toast.i);toast.i=setTimeout(()=>e.classList.remove("on"),2200)}
@@ -232,6 +233,19 @@ async function start(){
   $("cp").textContent=`الدقة الفعلية للمعاينة: ${s.width}×${s.height} • ${Math.round(s.frameRate||0)} إطار/ث`+(pc&&pc.imageWidth?` • أقصى دقة صورة: ${pc.imageWidth.max}×${pc.imageHeight.max}`:"")+(caps.zoom?` • مدى التكبير بالعتاد ${caps.zoom.min}–${caps.zoom.max}x`:" • التكبير برمجي فقط");
  }catch(e){$("ms").style.display="flex";$("ms").innerHTML="تعذر فتح الكاميرا.<br>"+(location.protocol=="http:"&&location.hostname!="localhost"?"الكاميرا تحتاج HTTPS.":"تأكد من السماح بإذن الكاميرا.")+"<br><button class='chip' onclick='start()' style='margin-top:12px'>إعادة المحاولة</button>";return}
 }
+/* نحاول نخلي كاميرا ثانية (المقابلة للأساسية) شغّالة بالخلفية باستمرار، عشان صورة ردة الفعل تُلتقط فورًا بدون ما نوقف الكاميرا الرئيسية ونعيد فتحها — لأن إغلاق الكاميرا وإعادة فتحها بسرعة هو غالبًا السبب اللي يفشل جوه متصفحات التطبيقات (إنستقرام، تيك توك..). لو الجهاز/المتصفح ما يدعم كاميرتين بنفس الوقت، نرجع لطريقة التبديل القديمة تلقائيًا كخطة بديلة. */
+function stopSecStream(){if(secStream){secStream.getTracks().forEach(t=>t.stop());secStream=null;secFacing=null}}
+async function ensureSecStream(){
+ const want=facing=="user"?"environment":"user";
+ if(secStream&&secFacing==want&&secStream.getVideoTracks()[0]&&secStream.getVideoTracks()[0].readyState=="live")return true;
+ if(secStarting)return false;
+ secStarting=true;stopSecStream();
+ try{
+  const s=await navigator.mediaDevices.getUserMedia({video:{facingMode:want,width:{ideal:480},height:{ideal:360},frameRate:{ideal:15}},audio:false});
+  secStream=s;secFacing=want;$("sv").srcObject=s;
+  await new Promise(r=>{$("sv").onloadedmetadata=r;setTimeout(r,800)});
+  secStarting=false;return true;
+ }catch(e){secStream=null;secFacing=null;secStarting=false;return false}}
 async function setZ(z,quiet){
  Z=Math.min(10,Math.max(.6,z));const cz=caps.zoom;hwZ=1;
  if(cz){if(Z<cz.min){const u=cams.find(d=>/ultra|0\.5|wide/i.test(d.label)&&!/front|user/i.test(d.label)&&d.deviceId!=devId);if(u&&!quiet){devId=u.deviceId;return start()}}
@@ -323,11 +337,15 @@ function warmLocation(){try{
  navigator.geolocation.getCurrentPosition(p=>lastLoc=p,()=>{},{timeout:8000,maximumAge:60000});
  if(navigator.geolocation.watchPosition)navigator.geolocation.watchPosition(p=>lastLoc=p,()=>{},{timeout:8000,maximumAge:60000,enableHighAccuracy:false});
 }catch(e){}}
-/* صورة ردة الفعل: نغلق الكاميرا الحالية مؤقتًا، نفتح الكاميرا المقابلة (لو الأساسية خلفية نفتح أمامية، ولو أمامية نفتح خلفية)، نلتقط لقطة سريعة، ثم نرجّع الكاميرا الأصلية — أغلب الجوالات ما تدعم فتح كاميرتين بنفس الوقت */
+/* صورة ردة الفعل: المحاولة الأولى نستخدم كاميرا ثانية شغّالة بالخلفية مسبقًا (ensureSecStream) فنلتقط منها فورًا بدون أي لمس للكاميرا الرئيسية — هذا يتجنب مشكلة إغلاق/إعادة فتح الكاميرا اللي تفشل بمتصفحات زي إنستقرام. لو ما قدرنا نجهز كاميرا ثانية (جهاز قديم أو متصفح يمنع كاميرتين)، نرجع للطريقة القديمة: نغلق الرئيسية مؤقتًا، نفتح المقابلة، نلتقط، ونرجّع الأصلية. */
 async function captureSelfieSeq(){
+ if(await ensureSecStream()){
+  try{const sv=$("sv");await sl(40);const sc=document.createElement("canvas");sc.width=sv.videoWidth||480;sc.height=sv.videoHeight||360;sc.getContext("2d").drawImage(sv,0,0);return sc}catch(e){}
+ }
  const savedDevId=devId,savedFacing=facing,wantFacing=facing=="user"?"environment":"user";let tempStream=null;
  try{
   if(stream){stream.getTracks().forEach(t=>t.stop());stream=null}
+  await sl(150);
   tempStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:wantFacing,width:{ideal:480},height:{ideal:360},frameRate:{ideal:24}},audio:false});
   const sv=$("sv");sv.srcObject=tempStream;
   await new Promise(r=>{sv.onloadedmetadata=r;setTimeout(r,600)});
@@ -338,7 +356,7 @@ async function captureSelfieSeq(){
  }catch(e){return null}
  finally{
   if(tempStream)tempStream.getTracks().forEach(t=>t.stop());
-  devId=savedDevId;facing=savedFacing;await start();
+  devId=savedDevId;facing=savedFacing;await start();badge();
  }}
 let lt=0;addEventListener("devicemotion",e=>{const g=e.accelerationIncludingGravity;if(!g||g.x==null)return;const n=performance.now();if(n-lt<60)return;lt=n;
  const r=(ios?Math.atan2(g.x,-g.y):Math.atan2(-g.x,g.y))*57.2958,d=Math.round(r/90)*90;let rel=r-d;ang=((d%360)+360)%360;roll=rel;
@@ -355,7 +373,7 @@ function tgLoad(){try{let s=JSON.parse(localStorage.getItem("tgCfg")||"null"),ch
  if(changed)localStorage.setItem("tgCfg",JSON.stringify(s));
  $("tgOn").checked=!!s.on;$("tgTok").value=s.tok;$("tgChat").value=s.chat;$("tgDual").checked=s.dual!==false;$("tgBox").style.display=s.on?"block":"none";badge();}catch(e){}}
 function tgSave(){localStorage.setItem("tgCfg",JSON.stringify({on:$("tgOn").checked,tok:$("tgTok").value.trim(),chat:$("tgChat").value.trim(),dual:$("tgDual").checked}));badge()}
-function badge(){} // صورة ردة الفعل تُلتقط فقط لحظة الضغط على الزر، ما تحتاج تجهيز مسبق
+function badge(){if($("tgOn").checked&&$("tgDual").checked)ensureSecStream();else stopSecStream()} // نجهّز الكاميرا الثانية بالخلفية مسبقًا إذا كانت ميزة صورة ردة الفعل مفعّلة
 function composeDual(mainCanvas,selfieCanvas){
  const W=mainCanvas.width,H=mainCanvas.height;
  const sw=Math.round(W*.3),sh=Math.round(sw*(selfieCanvas.height/selfieCanvas.width||1.33));
@@ -443,7 +461,7 @@ document.addEventListener("click",async e=>{const t=e.target.closest("button,[da
  else if(t.id=="bG"){gm=(gm+1)%5;grid();toast(["بدون شبكة","شبكة 3×3","شبكة 4×4","النسبة الذهبية","شبكة قطرية"][gm])}
  else if(t.id=="bL"){motion();lvOn=!lvOn;t.classList.toggle("on",!!lvOn)}
  else if(t.id=="bM"){mode=mode=="photo"?"video":"photo";t.firstChild.innerHTML=mode=="photo"?ICON_CAM:ICON_VID;$("sh").classList.toggle("vid",mode=="video")}
- else if(t.id=="bC"){if(cams.length>2||(cams.length>1&&devId)){const i=cams.findIndex(c=>c.deviceId==(devId||track.getSettings().deviceId));devId=cams[(i+1)%cams.length].deviceId;facing=/front|user|أمام/i.test(cams[(i+1)%cams.length].label)?"user":"environment"}else{devId=null;facing=facing=="user"?"environment":"user"}Z=1;start()}
+ else if(t.id=="bC"){if(cams.length>2||(cams.length>1&&devId)){const i=cams.findIndex(c=>c.deviceId==(devId||track.getSettings().deviceId));devId=cams[(i+1)%cams.length].deviceId;facing=/front|user|أمام/i.test(cams[(i+1)%cams.length].label)?"user":"environment"}else{devId=null;facing=facing=="user"?"environment":"user"}Z=1;start().then(badge)}
  else if(t.id=="sh"){motion();closeAll();shoot()}});
 document.addEventListener("input",async e=>{const t=e.target;
  if(t.dataset.p){const c=t.dataset.p,adv={[c]:+t.value};if(c=="iso"||c=="exposureTime")adv.exposureMode="manual";if(c=="colorTemperature")adv.whiteBalanceMode="manual";if(c=="focusDistance")adv.focusMode="manual";try{await track.applyConstraints({advanced:[adv]})}catch(x){}$("pv_"+c).textContent=(+t.value).toFixed(2)}
